@@ -1,8 +1,8 @@
 import pandas as pd
-from core.base_config import BaseInfo
+from configer.base_config import Base
 
 
-class DownLoader(BaseInfo):
+class DownLoader(Base):
     """
     下载器
     """

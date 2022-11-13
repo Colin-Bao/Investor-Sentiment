@@ -80,5 +80,10 @@ class ImgClassifier(Base):
 
 
 if __name__ == "__main__":
-    info = ImgClassifier()
-    info.predict_imgs(info.get_imgs_by_gzh('MjM5MzMwNjM0MA==', 10))
+    with ImgClassifier() as ImgClassifier:
+        for gzh in ImgClassifier.get_gzhs()['biz'].to_list():
+            while True:
+                imgs = ImgClassifier.get_imgs_by_gzh(gzh, 512)
+                if imgs.empty:
+                    break
+                ImgClassifier.predict_imgs(imgs)
