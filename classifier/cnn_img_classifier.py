@@ -83,15 +83,3 @@ class ImgClassifier(Base):
         # 预测结果与原表拼在一起
         df_res = pd.concat([df_query[['id']], df_pred[[0]]], axis=1).rename(columns={0: 'cover_neg'})
         self.update_by_temp(df_res, self.ARTICLE_TABLE, 'cover_neg', 'id')
-
-
-if __name__ == "__main__":
-    with ImgClassifier() as ImgClassifier:
-        gzh_list = ImgClassifier.get_gzhs()['biz'].to_list()
-        for gzh in gzh_list:
-            while True:
-                imgs = ImgClassifier.get_imgs_by_gzh(gzh)
-                if imgs.empty:
-                    break
-                else:
-                    ImgClassifier.predict_imgs(imgs)

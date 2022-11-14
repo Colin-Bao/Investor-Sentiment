@@ -9,7 +9,6 @@ class DownLoader(Base):
 
     def __init__(self):
         super(DownLoader, self).__init__()
-        # -------------------------------文件存储---------------------------------#
         self.IMG_PATH_ROOT = f'/Users/mac/Downloads/load_img/'  # 文件存储的路径
 
     def down_cover_by_gzh(self, biz: str):
@@ -69,9 +68,3 @@ class DownLoader(Base):
 
         # 更新下载完的图片
         self.update_by_temp(down(extract()), self.ARTICLE_TABLE, 'cover_local', 'id')
-
-
-if __name__ == '__main__':
-    with DownLoader() as DownLoader:
-        for gzh in DownLoader.GZH_LIST:
-            DownLoader.down_cover_by_gzh(gzh)  # 中国证券报 财新  央视财经

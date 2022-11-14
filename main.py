@@ -8,10 +8,9 @@ def img_loader():
 def img_classifier():
     from classifier.cnn_img_classifier import ImgClassifier
     with ImgClassifier() as ImgClassifier:
-        gzh_list = ImgClassifier.get_gzhs()['biz'].to_list()
-        for gzh in gzh_list:
+        for gzh in ImgClassifier.GZH_LIST:
             while True:
-                imgs = ImgClassifier.get_imgs_by_gzh(gzh, 512)
+                imgs = ImgClassifier.get_imgs_by_gzh(gzh)
                 if imgs.empty:
                     break
                 ImgClassifier.predict_imgs(imgs)

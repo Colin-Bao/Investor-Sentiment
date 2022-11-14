@@ -14,12 +14,11 @@ class Base:
                                     echo=False, connect_args={'check_same_thread': False})
 
         # -------------------------------使用配置---------------------------------#
-        self.GZH_LIST = self.get_gzhs()['biz'].to_list()  # 所有的公众号列表
+        self.GZH_LIST = self.__get_gzhs()['biz'].to_list()  # 所有的公众号列表
         self.START_TIME = int(pd.to_datetime('20150101').timestamp())  # 开始的日期
         self.END_TIME = int(pd.to_datetime('20221231').timestamp())  # 结束的日期
 
-    def get_gzhs(self) -> pd.DataFrame:
-        return pd.read_sql("SELECT biz,nickname FROM gzhs ", con=self.ENGINE)
+    def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs ", con=self.ENGINE)
 
     def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk):
         """
