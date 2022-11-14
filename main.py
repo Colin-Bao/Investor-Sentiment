@@ -8,13 +8,14 @@ def img_loader():
     from loader.img_loader import DownLoader
     with DownLoader() as DownLoader:
         for gzh in DownLoader.GZH_LIST:
-            DownLoader.load_cover_by_gzh(gzh)  # 中国证券报 财新  央视财经
+            DownLoader.load_cover_by_gzh(gzh)
 
 
 def imgsent_analyzer():
-    from analyzer.img_analyzer import Analyzer
-    with Analyzer() as Analyzer:
-        Analyzer.cal_img_sentiment_index()
+    from analyzer.img_analyzer import SentCalculator
+    with SentCalculator() as Calculator:
+        Calculator.map_trade_date()
+        Calculator.cal_sentiment_index()
 
 
 def img_classifier():
@@ -30,6 +31,6 @@ def img_classifier():
 
 if __name__ == '__main__':
     findata_loader()
-    # img_loader()
-    # img_classifier()
-    # imgsent_analyzer()
+    img_loader()
+    img_classifier()
+    imgsent_analyzer()

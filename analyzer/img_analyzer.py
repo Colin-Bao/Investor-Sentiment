@@ -2,15 +2,17 @@ import pandas as pd
 from configer.base_config import Base
 
 
-class Analyzer(Base):
+class SentCalculator(Base):
 
     def __init__(self):
-        super(Analyzer, self).__init__()
-        self.TRADE_TABLE = '399300.SZ'
+        super(SentCalculator, self).__init__()
+        self.TRADE_TABLE = '399300.SZ'  # 用作指数计算
         self.MAP_TABLE = 'map_date'
-        self.UPDATE_LIMIT = 2000
-        self.DF_TEMP = None
+        self.UPDATE_LIMIT = 2000  # 分片更新
+        self.NEG_VALUE = 0.55  # 临界值
         self.GZH_LIST = ['中国证券报', '财新网', '央视财经', '界面新闻']
+        self.NEG_COLUMN = 'cover_neg'
+        self.SAVE_NAME = f'img_sent_{len(self.GZH_LIST)}_{int(self.NEG_VALUE * 100)}'
 
     def map_trade_date(self):
         """
@@ -79,7 +81,12 @@ class Analyzer(Base):
         # 分片更新
         update_by_limit()
 
-    def cal_img_sentiment(self):
+    def extract_panel_data(self):
+        """
+        转为标准的面板数据用于计算/n
+        :return:
+        """
+
         def extract():
             df_select = pd.read_sql(
                 f"SELECT a.t_date,gzhs.nickname,a.title,a.cover_local,a.cover_neg "
@@ -96,13 +103,40 @@ class Analyzer(Base):
             df_select['t_date'] = df_select['t_date'].dt.strftime("%Y%m%d")
             return df_select[df_select['nickname'].isin(self.GZH_LIST)]
 
-        def group_by_tdate(df_extract):
-            return df_extract
+        return extract()
 
-        self.DF_TEMP = group_by_tdate(extract())
+    def cal_sentiment_index(self):
+        import numpy as np
+        # 提取
+        df_select = self.extract_panel_data()
+        # 设定阈值
+        df_select['is_neg'] = np.where(df_select[self.NEG_COLUMN] >= self.NEG_VALUE, 1, 0)
+        # 聚合
+        df_group = (df_select.groupby('t_date')
+                    .agg({'is_neg': 'sum', 't_date': 'count'})
+                    .rename(columns={'is_neg': 'neg_count', 't_date': 'all_count'}).reset_index())
+        # 图像情绪指数
+        df_group['img_neg'] = df_group['neg_count'] / df_group['all_count']
+        # 储存
+        df_group[['t_date', 'img_neg']].to_sql(self.SAVE_NAME, self.ENGINE, index=False, if_exists='replace')
 
 
-if __name__ == '__main__':
-    with Analyzer() as Analyzer:
-        Analyzer.map_trade_date()
-        Analyzer.cal_img_sentiment()
+class RegCalculator(Base):
+    def __init__(self):
+        super(RegCalculator, self).__init__()
+        from pystata import config
+        config.init('mp')
+        from pystata import stata
+        self.STATA_API = stata
+        self.df_stata = pd.DataFrame()
+
+    def set_df_to_stata(self, df: pd.DataFrame):
+        self.STATA_API.pdataframe_to_data(df, force=True)
+        self.df_stata = df
+
+    def run_stata_do(self, stata_str):
+        self.STATA_API.run(stata_str)
+
+
+with RegCalculator() as RegCalculator:
+    RegCalculator.run_stata_do('li')
