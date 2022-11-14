@@ -11,7 +11,7 @@ class DownLoader(Base):
         super(DownLoader, self).__init__()
         self.IMG_PATH_ROOT = f'/Users/mac/Downloads/load_img/'  # 文件存储的路径
 
-    def down_cover_by_gzh(self, biz: str):
+    def load_cover_by_gzh(self, biz: str):
         """
         按照公众号名称,分片下载\n
         :param biz:
@@ -27,8 +27,8 @@ class DownLoader(Base):
                 f"SELECT id,cover,cover_local FROM {self.ARTICLE_TABLE} "
                 "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NULL",
                 con=self.ENGINE, params={'biz': biz,
-                                         'sd': self.START_TIME,
-                                         'ed': self.END_TIME,
+                                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
+                                         'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
                                          'mov': 10},
                 parse_dates=["p_date"], )
             return df_select

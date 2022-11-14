@@ -22,8 +22,8 @@ class ImgClassifier(Base):
                 "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed "
                 "AND cover_local IS NOT NULL AND cover_neg IS NULL LIMIT :limit_size",
                 con=self.ENGINE, params={'biz': biz,
-                                         'sd': self.START_TIME,
-                                         'ed': self.END_TIME,
+                                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
+                                         'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
                                          'mov': 10,
                                          'limit_size': self.BATCH_SIZE}, )
             return df_select
