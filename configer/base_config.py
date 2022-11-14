@@ -10,14 +10,15 @@ class DB:
                                     echo=False, connect_args={'check_same_thread': False})
 
         # -------------------------------使用配置---------------------------------#
-        self.START_DATE = '20150101'
+        self.START_DATE = '20140101'
         self.END_DATE = '20221231'
 
-    def __enter__(self):
-        return self
+    def save_sql(self, df_save: pd.DataFrame, name: str) -> None: df_save.to_sql(name, self.ENGINE, index=False,
+                                                                                 if_exists='replace')
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.ENGINE.dispose()
+    def __enter__(self): return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb): self.ENGINE.dispose()
 
 
 class Base(DB):
@@ -39,7 +40,7 @@ class Base(DB):
     def __get_tables(self) -> pd.DataFrame: return pd.read_sql("select name from sqlite_master WHERE type ='table'",
                                                                con=self.ENGINE)
 
-    def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk):
+    def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk='id'):
         """
         生成中间表来更新\n
         :param df_temp:

@@ -76,8 +76,9 @@ class SentCalculator(Base):
                     self.update_by_temp(df_con, self.ARTICLE_TABLE, 't_date', 'id')
 
         # 生成表
-        if self.MAP_TABLE not in self.TABLE_LIST:
-            gen_map_table()
+        gen_map_table()
+        # if self.MAP_TABLE not in self.TABLE_LIST:
+        #     gen_map_table()
         # 分片更新
         update_by_limit()
 
@@ -118,25 +119,92 @@ class SentCalculator(Base):
         # 图像情绪指数
         df_group['img_neg'] = df_group['neg_count'] / df_group['all_count']
         # 储存
-        df_group[['t_date', 'img_neg']].to_sql(self.SAVE_NAME, self.ENGINE, index=False, if_exists='replace')
+        self.save_sql(df_group[['t_date', 'img_neg']], self.SAVE_NAME)
 
 
 class RegCalculator(Base):
+    """
+    用于回归分析
+    """
+
     def __init__(self):
         super(RegCalculator, self).__init__()
+        # -----------------------------STATA配置-----------------------------------#
         from pystata import config
         config.init('mp')
         from pystata import stata
         self.STATA_API = stata
-        self.df_stata = pd.DataFrame()
+        # -----------------------------运行配置-----------------------------------#
+        self.SENT_TYPE = 'img'
+        self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]
+        self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]
 
-    def set_df_to_stata(self, df: pd.DataFrame):
+    def __set_df_to_stata(self, df: pd.DataFrame):
         self.STATA_API.pdataframe_to_data(df, force=True)
-        self.df_stata = df
 
-    def run_stata_do(self, stata_str):
+    def __run_stata_do(self, stata_str):
         self.STATA_API.run(stata_str)
 
+    def prepare_data(self) -> pd.DataFrame:
+        """
+        提取回归前的数据准备\n
+        :return:
+        """
 
-with RegCalculator() as RegCalculator:
-    RegCalculator.run_stata_do('li')
+        def extract_shareindex():
+            # 提取
+            df_indexs = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{self.SHAREINDEX_TABLES[0]}' ",
+                                    con=self.ENGINE).rename(
+                columns={'pct_chg': 'idx_' + self.SHAREINDEX_TABLES[0].replace('.', '_')})
+            self.SHAREINDEX_TABLES.remove(self.SHAREINDEX_TABLES[0])
+            for i in self.SHAREINDEX_TABLES:
+                df_index = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{i}' ", con=self.ENGINE).rename(
+                    columns={'pct_chg': 'idx_' + i.replace('.', '_')})
+                df_indexs = pd.merge(df_indexs, df_index, on='trade_date', how='left')
+
+            # 转换
+            df_indexs.set_index('trade_date', inplace=True)
+            df_indexs_s = df_indexs ** 2  # 增加平方项
+            df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
+
+            return pd.concat([df_indexs_s, df_indexs], axis=1).reset_index()
+
+        def extract_sentiment():
+            # 提取
+            df_sents = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{self.SENTIMENT_TABLES[0]}' ",
+                                   con=self.ENGINE).rename(columns={f'{self.SENT_TYPE}_neg': self.SENTIMENT_TABLES[0]})
+            self.SENTIMENT_TABLES.remove(self.SENTIMENT_TABLES[0])
+            for i in self.SENTIMENT_TABLES:
+                df_sent = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{i}' ", con=self.ENGINE).rename(
+                    columns={f'{self.SENT_TYPE}_neg': i})
+                df_sents = pd.merge(df_sents, df_sent, on='t_date', how='left')
+            # 提取
+            return df_sents
+
+        return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date', how='left')
+
+    def var_regression(self):
+        def do_file():
+            do = """
+            //创建时间序列和设定
+            ge time=_n
+            tsset time
+            
+            //生成平方项
+            
+            //描述性统计
+            des
+            
+            //VAR回归
+            var idx_000011_SH, lags(1/5) exog(L(1/5).idx_000001_SH_s L(1/5).img_sent_4_55)
+            var idx_399001_SZ, lags(1/5) exog(L(1/5).idx_399001_SZ_s L(1/5).img_sent_4_55)
+            var idx_000011_SH, lags(1/5) exog(L(1/5).idx_000011_SH_s L(1/5).img_sent_4_55)
+            var idx_399307_SZ, lags(1/5) exog(L(1/5).idx_399307_SZ_s L(1/5).img_sent_4_55)
+            var idx_399300_SZ, lags(1/5) exog(L(1/5).idx_399300_SZ_s L(1/5).img_sent_4_55)
+            """
+            return do
+
+        # print(self.prepare_data())
+        df = self.prepare_data()
+        self.__set_df_to_stata(df)
+        self.__run_stata_do(do_file())

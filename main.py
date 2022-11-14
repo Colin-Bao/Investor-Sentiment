@@ -12,10 +12,12 @@ def img_loader():
 
 
 def imgsent_analyzer():
-    from analyzer.img_analyzer import SentCalculator
+    from analyzer.img_analyzer import SentCalculator, RegCalculator
     with SentCalculator() as Calculator:
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
+    with RegCalculator() as RegCalculator:
+        RegCalculator.var_regression()
 
 
 def img_classifier():
@@ -30,7 +32,7 @@ def img_classifier():
 
 
 if __name__ == '__main__':
-    findata_loader()
-    img_loader()
-    img_classifier()
+    # findata_loader()
+    # img_loader()
+    # img_classifier()
     imgsent_analyzer()
