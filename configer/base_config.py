@@ -7,11 +7,16 @@ class Base:
     """
 
     def __init__(self):
+        # -------------------------------数据库后端---------------------------------#
         from sqlalchemy import create_engine
-        self.DOWNLOAD_PATH_ROOT = f'/Users/mac/Downloads/load_img/'
-        self.ARTICLE_TABLE = 'articles_copy1'
+        self.ARTICLE_TABLE = 'articles_copy1'  # 引用的数据库
         self.ENGINE = create_engine('sqlite:////Users/mac/PycharmProjects/wcplusPro7.31/db_folder/data-dev.db',
                                     echo=False, connect_args={'check_same_thread': False})
+
+        # -------------------------------使用配置---------------------------------#
+        self.GZH_LIST = self.get_gzhs()['biz'].to_list()  # 所有的公众号列表
+        self.START_TIME = int(pd.to_datetime('20150101').timestamp())  # 开始的日期
+        self.END_TIME = int(pd.to_datetime('20221231').timestamp())  # 结束的日期
 
     def get_gzhs(self) -> pd.DataFrame:
         return pd.read_sql("SELECT biz,nickname FROM gzhs ", con=self.ENGINE)

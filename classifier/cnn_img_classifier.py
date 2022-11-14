@@ -8,22 +8,27 @@ class ImgClassifier(Base):
     def __init__(self):
         super(ImgClassifier, self).__init__()
         self.MODEL_PATH = '/Users/mac/PycharmProjects/Google-V3/img_predict/twitter_tl_500.h5'
+        self.BATCH_SIZE = 512
 
-    def get_imgs_by_gzh(self, biz, limit_size: int = 500):
+    def get_imgs_by_gzh(self, biz):
         """
         从数据库获取待预测的图片\n
         :return:
         """
-        df_select = pd.read_sql(
-            f"SELECT id,cover_local FROM {self.ARTICLE_TABLE} "
-            "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed "
-            "AND cover_local IS NOT NULL AND cover_neg IS NULL LIMIT :limit_size",
-            con=self.ENGINE, params={'biz': biz,
-                                     'sd': int(pd.to_datetime('20200101').timestamp()),
-                                     'ed': int(pd.to_datetime('20210101').timestamp()),
-                                     'mov': 10,
-                                     'limit_size': limit_size}, )
-        return df_select
+
+        def extract():
+            df_select = pd.read_sql(
+                f"SELECT id,cover_local FROM {self.ARTICLE_TABLE} "
+                "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed "
+                "AND cover_local IS NOT NULL AND cover_neg IS NULL LIMIT :limit_size",
+                con=self.ENGINE, params={'biz': biz,
+                                         'sd': self.START_TIME,
+                                         'ed': self.END_TIME,
+                                         'mov': 10,
+                                         'limit_size': self.BATCH_SIZE}, )
+            return df_select
+
+        return extract()
 
     def predict_imgs(self, df_query: pd.DataFrame):
         """
@@ -47,10 +52,10 @@ class ImgClassifier(Base):
             for i in range(len(df_img)):
                 try:
                     images = load_img(df_img[i], target_size=(299, 299))
-                    img_arrary = img_to_array(images)
-                    img_arrary = np.expand_dims(img_arrary, axis=0)
-                    img_arrary = preprocess_input(img_arrary)
-                    img_path_list.append(img_arrary)
+                    np_img = img_to_array(images)
+                    np_img = np.expand_dims(np_img, axis=0)
+                    np_img = preprocess_input(np_img)
+                    img_path_list.append(np_img)
                 except (FileNotFoundError, OSError, PIL.UnidentifiedImageError) as e:
                     continue
             # 把图片数组联合在一起
@@ -82,9 +87,11 @@ class ImgClassifier(Base):
 
 if __name__ == "__main__":
     with ImgClassifier() as ImgClassifier:
-        for gzh in ImgClassifier.get_gzhs()['biz'].to_list():
+        gzh_list = ImgClassifier.get_gzhs()['biz'].to_list()
+        for gzh in gzh_list:
             while True:
-                imgs = ImgClassifier.get_imgs_by_gzh(gzh, 512)
+                imgs = ImgClassifier.get_imgs_by_gzh(gzh)
                 if imgs.empty:
                     break
-                ImgClassifier.predict_imgs(imgs)
+                else:
+                    ImgClassifier.predict_imgs(imgs)

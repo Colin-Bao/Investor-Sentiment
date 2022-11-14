@@ -9,6 +9,8 @@ class DownLoader(Base):
 
     def __init__(self):
         super(DownLoader, self).__init__()
+        # -------------------------------文件存储---------------------------------#
+        self.IMG_PATH_ROOT = f'/Users/mac/Downloads/load_img/'  # 文件存储的路径
 
     def down_cover_by_gzh(self, biz: str):
         """
@@ -26,8 +28,8 @@ class DownLoader(Base):
                 f"SELECT id,cover,cover_local FROM {self.ARTICLE_TABLE} "
                 "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NULL",
                 con=self.ENGINE, params={'biz': biz,
-                                         'sd': int(pd.to_datetime('20150101').timestamp()),
-                                         'ed': int(pd.to_datetime('20210101').timestamp()),
+                                         'sd': self.START_TIME,
+                                         'ed': self.END_TIME,
                                          'mov': 10},
                 parse_dates=["p_date"], )
             return df_select
@@ -41,15 +43,20 @@ class DownLoader(Base):
             import requests
             import os
 
-            load_path = self.DOWNLOAD_PATH_ROOT + f'{biz}/'
+            load_path = self.IMG_PATH_ROOT + f'{biz}/'
             os.makedirs(load_path, exist_ok=True)
 
             # 下载图片
             def down_url(x):
                 with open(load_path + f"{x['id']}.jpeg", 'wb') as f:
-                    if f.write(requests.get(x['cover'], stream=True).content):
-                        return load_path + f"{x['id']}.jpeg"
-                return None
+                    try:
+                        if f.write(requests.get(x['cover'], stream=True).content):
+                            return load_path + f"{x['id']}.jpeg"
+                        else:
+                            return None
+                    except Exception as e:
+                        # print(e.args)
+                        return None
 
             import dask.dataframe as dd
             from dask.diagnostics import ProgressBar
@@ -66,5 +73,5 @@ class DownLoader(Base):
 
 if __name__ == '__main__':
     with DownLoader() as DownLoader:
-        for gzh in DownLoader.get_gzhs()['biz'].to_list():
+        for gzh in DownLoader.GZH_LIST:
             DownLoader.down_cover_by_gzh(gzh)  # 中国证券报 财新  央视财经
