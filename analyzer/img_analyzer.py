@@ -76,9 +76,9 @@ class SentCalculator(Base):
                     self.update_by_temp(df_con, self.ARTICLE_TABLE, 't_date', 'id')
 
         # 生成表
-        gen_map_table()
-        # if self.MAP_TABLE not in self.TABLE_LIST:
-        #     gen_map_table()
+        # gen_map_table()
+        if self.MAP_TABLE not in self.TABLE_LIST:
+            gen_map_table()
         # 分片更新
         update_by_limit()
 
@@ -152,6 +152,10 @@ class RegCalculator(Base):
         """
 
         def extract_shareindex() -> pd.DataFrame:
+            """
+            提取因变量:股指\n
+            :return: 包含多个股指和平方项的时间序列数据
+            """
             # 提取
             def extract():
                 def rename_table(name): return 'idx_' + name.lower().replace('.', '_')
@@ -181,10 +185,15 @@ class RegCalculator(Base):
             return transform(extract())
 
         def extract_sentiment() -> pd.DataFrame:
+            """
+            提取所有算法的情绪指数\n
+            :return: 包含情绪指数的数据
+            """
             # 提取
             df_sents = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{self.SENTIMENT_TABLES[0]}' ",
                                    con=self.ENGINE).rename(columns={f'{self.SENT_TYPE}_neg': self.SENTIMENT_TABLES[0]})
             self.SENTIMENT_TABLES.remove(self.SENTIMENT_TABLES[0])
+
             for i in self.SENTIMENT_TABLES:
                 df_sent = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{i}' ", con=self.ENGINE).rename(
                     columns={f'{self.SENT_TYPE}_neg': i})
@@ -216,7 +225,7 @@ class RegCalculator(Base):
             """
             return do
 
-        df = self.prepare_data()
+        df_prepare = self.prepare_data()
         # print(df)
-        self.__set_df_to_stata(df)
+        self.__set_df_to_stata(df_prepare)
         self.__run_stata_do(do_file())
