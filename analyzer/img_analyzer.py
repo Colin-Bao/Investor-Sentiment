@@ -151,25 +151,36 @@ class RegCalculator(Base):
         :return:
         """
 
-        def extract_shareindex():
+        def extract_shareindex() -> pd.DataFrame:
             # 提取
-            df_indexs = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{self.SHAREINDEX_TABLES[0]}' ",
-                                    con=self.ENGINE).rename(
-                columns={'pct_chg': 'idx_' + self.SHAREINDEX_TABLES[0].replace('.', '_')})
-            self.SHAREINDEX_TABLES.remove(self.SHAREINDEX_TABLES[0])
-            for i in self.SHAREINDEX_TABLES:
-                df_index = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{i}' ", con=self.ENGINE).rename(
-                    columns={'pct_chg': 'idx_' + i.replace('.', '_')})
-                df_indexs = pd.merge(df_indexs, df_index, on='trade_date', how='left')
+            def extract():
+                def rename_table(name): return 'idx_' + name.lower().replace('.', '_')
 
-            # 转换
-            df_indexs.set_index('trade_date', inplace=True)
-            df_indexs_s = df_indexs ** 2  # 增加平方项
-            df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
+                # 把第一个作为参照
+                df_indexs = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{self.SHAREINDEX_TABLES[0]}' ",
+                                        con=self.ENGINE).rename(
+                    columns={'pct_chg': rename_table(self.SHAREINDEX_TABLES[0])})
+                self.SHAREINDEX_TABLES.remove(self.SHAREINDEX_TABLES[0])
 
-            return pd.concat([df_indexs_s, df_indexs], axis=1).reset_index()
+                # 拼接
+                for table_name in self.SHAREINDEX_TABLES:
+                    df_index = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{table_name}' ", con=self.ENGINE).rename(
+                        columns={'pct_chg': rename_table(table_name)})
+                    df_indexs = pd.merge(df_indexs, df_index, on='trade_date', how='left')
+                # 排序
+                return df_indexs
 
-        def extract_sentiment():
+            def transform(df_indexs):
+                # 转换
+                df_indexs.set_index('trade_date', inplace=True)
+                # 增加平方项
+                df_indexs_s = df_indexs ** 2
+                df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
+                return pd.concat([df_indexs_s, df_indexs], axis=1).reset_index()
+
+            return transform(extract())
+
+        def extract_sentiment() -> pd.DataFrame:
             # 提取
             df_sents = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{self.SENTIMENT_TABLES[0]}' ",
                                    con=self.ENGINE).rename(columns={f'{self.SENT_TYPE}_neg': self.SENTIMENT_TABLES[0]})
@@ -181,7 +192,8 @@ class RegCalculator(Base):
             # 提取
             return df_sents
 
-        return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date', how='left')
+        return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
+                        how='left').sort_values('trade_date', ascending=True)
 
     def var_regression(self):
         def do_file():
@@ -196,15 +208,15 @@ class RegCalculator(Base):
             des
             
             //VAR回归
-            var idx_000011_SH, lags(1/5) exog(L(1/5).idx_000001_SH_s L(1/5).img_sent_4_55)
-            var idx_399001_SZ, lags(1/5) exog(L(1/5).idx_399001_SZ_s L(1/5).img_sent_4_55)
-            var idx_000011_SH, lags(1/5) exog(L(1/5).idx_000011_SH_s L(1/5).img_sent_4_55)
-            var idx_399307_SZ, lags(1/5) exog(L(1/5).idx_399307_SZ_s L(1/5).img_sent_4_55)
-            var idx_399300_SZ, lags(1/5) exog(L(1/5).idx_399300_SZ_s L(1/5).img_sent_4_55)
+            var idx_000011_sh, lags(1/5) exog(L(1/5).idx_000001_sh_s L(1/5).img_sent_4_55)
+            var idx_399001_sz, lags(1/5) exog(L(1/5).idx_399001_sz_s L(1/5).img_sent_4_55)
+            var idx_000011_sh, lags(1/5) exog(L(1/5).idx_000011_sh_s L(1/5).img_sent_4_55)
+            var idx_399307_sz, lags(1/5) exog(L(1/5).idx_399307_sz_s L(1/5).img_sent_4_55)
+            var idx_399300_sz, lags(1/5) exog(L(1/5).idx_399300_sz_s L(1/5).img_sent_4_55)
             """
             return do
 
-        # print(self.prepare_data())
         df = self.prepare_data()
+        # print(df)
         self.__set_df_to_stata(df)
         self.__run_stata_do(do_file())
