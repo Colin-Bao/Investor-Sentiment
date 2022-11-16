@@ -13,11 +13,15 @@ def img_loader():
 
 def imgsent_analyzer():
     from analyzer.img_analyzer import SentCalculator, RegCalculator
-    with SentCalculator() as Calculator:
+    import sys
+    with SentCalculator('img', 0.55) as Calculator:
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
+        f = open(r'output/reg.log', 'w+')
+        sys.stdout = f
         RegCalculator.var_regression()
+        f.close()
 
 
 def img_classifier():

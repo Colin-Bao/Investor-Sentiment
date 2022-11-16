@@ -7,16 +7,16 @@ class SentCalculator(Base):
     从article中的列,按照交易日期聚合情绪
     """
 
-    def __init__(self):
+    def __init__(self, SENT_TYPE, NEG_VALUE):
         super(SentCalculator, self).__init__()
         self.TRADE_TABLE = '399300.SZ'  # 用作指数计算
         self.MAP_TABLE = 'map_date'
         self.UPDATE_LIMIT = 2000  # 分片更新
-        self.NEG_VALUE = 0.55  # 临界值
-        self.GZH_LIST = ['中国证券报', '财新网', '央视财经', '界面新闻']
-        self.SENT_TYPE = ['img', 'text'][0]
+        self.NEG_VALUE = NEG_VALUE  # 临界值
+        self.NICKNAME_LIST = ['中国证券报', '财新网', '央视财经', '界面新闻']
+        self.SENT_TYPE = SENT_TYPE
         self.NEG_COLUMN = {'img': 'cover_neg', 'text': 'title_neg'}[self.SENT_TYPE]  # 用于聚合计算的列
-        self.SAVE_NAME = f'{self.SENT_TYPE}_sent_{len(self.GZH_LIST)}_{int(self.NEG_VALUE * 100)}'  # 输出的名字
+        self.SAVE_NAME = f'{self.SENT_TYPE}_sent_{len(self.NICKNAME_LIST)}_{int(self.NEG_VALUE * 100)}'  # 输出的名字
 
     def map_trade_date(self):
         """
@@ -105,7 +105,7 @@ class SentCalculator(Base):
 
             # 转换
             df_select['t_date'] = df_select['t_date'].dt.strftime("%Y%m%d")
-            return df_select[df_select['nickname'].isin(self.GZH_LIST)]
+            return df_select[df_select['nickname'].isin(self.NICKNAME_LIST)]
 
         return extract()
 
@@ -237,23 +237,10 @@ class RegCalculator(Base):
         向量自回归\n
         """
 
-        def do_set_time():
-            do = """
-            //创建时间序列和设定
-            ge time=_n
-            tsset time
-            """
-            return do
+        def do_set_time(): return 'ge time=_n \n tsset time'
 
-        def do_var_reg(y_share_index, x_sent_index, z_dummy_list):
-            do = f"""
-            //描述性统计
-            des
-            
-            //VAR回归
-            var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})
-            """
-            return do
+        def do_var_reg(y_share_index, x_sent_index,
+                       z_dummy_list): return f'var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})'
 
         def var_by_group():
             # 获取所有的数据
