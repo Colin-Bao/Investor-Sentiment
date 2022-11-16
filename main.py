@@ -39,5 +39,5 @@ def img_classifier():
 if __name__ == '__main__':
     # findata_loader()
     # img_loader()
-    # img_classifier()
+    img_classifier()
     imgsent_analyzer()
