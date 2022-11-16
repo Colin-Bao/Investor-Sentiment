@@ -93,9 +93,13 @@ class ImgClassifier(Base):
         df_pred = classify_img_bymodel(transform_imgs(df_query['cover_local']))
 
         # 预测结果与原表拼在一起
-        df_res = pd.concat([df_query[['id']], df_pred[[0]]], axis=1).rename(columns={0: 'cover_neg'})
-        self.update_by_temp(df_res, self.ARTICLE_TABLE, 'cover_neg', 'id')
+        return pd.concat([df_query[['id']], df_pred[[0]]], axis=1).rename(columns={0: 'cover_neg'})
 
+    def update_pred(self, df_pred):
+        """
+        更新
+        :param df_pred:
+        :return:
+        """
+        self.update_by_temp(df_pred, self.ARTICLE_TABLE, 'cover_neg', 'id')
 
-s = ImgClassifier()
-print(s.extract_imgs_by_testset())
