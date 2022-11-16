@@ -33,6 +33,8 @@ def img_classifier():
                 if imgs.empty:
                     break
                 ImgClassifier.update_pred(ImgClassifier.predict_imgs(imgs))
+        # 模型评估
+        ImgClassifier.calculate_metrics()
 
 
 if __name__ == '__main__':

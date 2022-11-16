@@ -127,9 +127,8 @@ class ImgClassifier(Base):
             df_id = df_real['image'].str.rsplit("/", expand=True, n=1)[1].str[:-5].rename('id')
             return pd.concat([df_id, df_real['real']], axis=1)
 
-        def metrics():
+        def metrics(df_compare):
             from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
-            df_compare = pd.merge(extract_real_tag(), extract_pred_testset(), on='id', how='inner')
             y_true, y_pred = df_compare['real'], df_compare['pred']
             CM, AS, RS, PS, FS = (confusion_matrix(y_true, y_pred, labels=["positive", "negative"]),
                                   accuracy_score(y_true, y_pred),
@@ -139,7 +138,11 @@ class ImgClassifier(Base):
 
             return CM, AS, RS, PS, FS
 
-        return metrics()
+        res = dict(zip(('confusion_matrix', 'accuracy_score', 'recall_score', 'precision_score', 'f1_score'),
+                       metrics(pd.merge(extract_real_tag(), extract_pred_testset(), on='id', how='inner'))))
+        print(res)
+
+        return res
 
 
-print(ImgClassifier().calculate_metrics())
+ImgClassifier().calculate_metrics()
