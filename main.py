@@ -18,7 +18,7 @@ def imgsent_analyzer():
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
-        f = open(r'output/reg.log', 'w+')
+        f = open(r'output/var_res.log', 'w+')
         sys.stdout = f
         RegCalculator.var_regression()
         f.close()
