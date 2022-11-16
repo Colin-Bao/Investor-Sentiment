@@ -253,5 +253,6 @@ class RegCalculator(Base):
                 self.__run_stata_do(do_file)
 
         var_by_group()
+
         # self.prepare_data()
         # print(','.join(self.DUMMY_VARIABLE))
