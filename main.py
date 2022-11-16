@@ -33,7 +33,6 @@ def img_classifier():
                 if imgs.empty:
                     break
                 ImgClassifier.update_pred(ImgClassifier.predict_imgs(imgs))
-        ImgClassifier.save_sql(ImgClassifier.predict_imgs(ImgClassifier.extract_imgs_by_testset()), 'testset')
 
 
 if __name__ == '__main__':

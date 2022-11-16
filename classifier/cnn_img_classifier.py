@@ -9,6 +9,7 @@ class ImgClassifier(Base):
         super(ImgClassifier, self).__init__()
         self.MODEL_PATH = '/Users/mac/PycharmProjects/Google-V3/img_predict/twitter_tl_500.h5'
         self.TESTSET_PATH = '/Users/mac/Downloads/load_img/testset/'
+        self.TESTSET_TAG_PATH = '/Users/mac/Downloads/load_img/testset_tag.csv'
         self.BATCH_SIZE = 512
 
     def extract_imgs_by_gzh(self, biz):
@@ -103,3 +104,29 @@ class ImgClassifier(Base):
         """
         self.update_by_temp(df_pred, self.ARTICLE_TABLE, 'cover_neg', 'id')
 
+    def compare_accuracy(self):
+        """
+        比较与真实数据的准确性
+        :return:
+        """
+        import numpy as np
+        def extract_testset() -> pd.DataFrame:
+            if 'testset' not in self.TABLE_LIST:
+                self.save_sql(self.predict_imgs(self.extract_imgs_by_testset()), 'testset')
+            df_testset = pd.read_sql('SELECT id,cover_neg FROM testset', self.ENGINE)
+            df_testset['cover_neg'] = np.where(df_testset['cover_neg'] >= 0.55, 1, 0)
+            return df_testset
+
+        def extract_real_tag() -> pd.DataFrame:
+            df_real = pd.read_csv(self.TESTSET_TAG_PATH, usecols=['image', 'choice']).rename(
+                columns={'choice': 'cover_neg'})
+            df_real['cover_neg'] = np.where(df_real['cover_neg'] == 'negative', 1, 0)
+            # 提取id
+            df_id = df_real['image'].str.rsplit("/", expand=True, n=1)[1].str[:-5].rename('id')
+            return pd.concat([df_id, df_real['cover_neg']], axis=1)
+
+        print(extract_testset())
+        print(extract_real_tag())
+
+
+ImgClassifier().compare_accuracy()
