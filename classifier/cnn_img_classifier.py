@@ -104,29 +104,42 @@ class ImgClassifier(Base):
         """
         self.update_by_temp(df_pred, self.ARTICLE_TABLE, 'cover_neg', 'id')
 
-    def compare_accuracy(self):
+    def calculate_metrics(self):
         """
         比较与真实数据的准确性
         :return:
         """
         import numpy as np
-        def extract_testset() -> pd.DataFrame:
+
+        def extract_pred_testset() -> pd.DataFrame:
             if 'testset' not in self.TABLE_LIST:
                 self.save_sql(self.predict_imgs(self.extract_imgs_by_testset()), 'testset')
-            df_testset = pd.read_sql('SELECT id,cover_neg FROM testset', self.ENGINE)
-            df_testset['cover_neg'] = np.where(df_testset['cover_neg'] >= 0.55, 1, 0)
-            return df_testset
+            df_pred = pd.read_sql('SELECT id,cover_neg FROM testset', self.ENGINE).rename(
+                columns={'cover_neg': 'pred'})
+            df_pred['pred'] = np.where(df_pred['pred'] >= 0.5, 'negative', 'positive')
+            return df_pred
 
         def extract_real_tag() -> pd.DataFrame:
             df_real = pd.read_csv(self.TESTSET_TAG_PATH, usecols=['image', 'choice']).rename(
-                columns={'choice': 'cover_neg'})
-            df_real['cover_neg'] = np.where(df_real['cover_neg'] == 'negative', 1, 0)
+                columns={'choice': 'real'})
+            df_real['real'] = np.where(df_real['real'] == 'negative', 'negative', 'positive')
             # 提取id
             df_id = df_real['image'].str.rsplit("/", expand=True, n=1)[1].str[:-5].rename('id')
-            return pd.concat([df_id, df_real['cover_neg']], axis=1)
+            return pd.concat([df_id, df_real['real']], axis=1)
 
-        print(extract_testset())
-        print(extract_real_tag())
+        def metrics():
+            from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
+            df_compare = pd.merge(extract_real_tag(), extract_pred_testset(), on='id', how='inner')
+            y_true, y_pred = df_compare['real'], df_compare['pred']
+            CM, AS, RS, PS, FS = (confusion_matrix(y_true, y_pred, labels=["positive", "negative"]),
+                                  accuracy_score(y_true, y_pred),
+                                  recall_score(y_true, y_pred, average='macro'),
+                                  precision_score(y_true, y_pred, average='macro'),
+                                  f1_score(y_true, y_pred, average='macro'))
+
+            return CM, AS, RS, PS, FS
+
+        return metrics()
 
 
-ImgClassifier().compare_accuracy()
+print(ImgClassifier().calculate_metrics())
