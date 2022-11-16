@@ -11,13 +11,13 @@ class SentCalculator(Base):
         self.UPDATE_LIMIT = 2000  # 分片更新
         self.NEG_VALUE = 0.55  # 临界值
         self.GZH_LIST = ['中国证券报', '财新网', '央视财经', '界面新闻']
-        self.NEG_COLUMN = 'cover_neg'
-        self.SAVE_NAME = f'img_sent_{len(self.GZH_LIST)}_{int(self.NEG_VALUE * 100)}'
+        self.SENT_TYPE = ['img', 'text'][0]
+        self.NEG_COLUMN = {'img': 'cover_neg', 'text': 'title_neg'}[self.SENT_TYPE]  # 用于聚合计算的列
+        self.SAVE_NAME = f'{self.SENT_TYPE}_sent_{len(self.GZH_LIST)}_{int(self.NEG_VALUE * 100)}'  # 输出的名字
 
     def map_trade_date(self):
         """
-        映射交易日期\n
-        :return:
+        映射交易日期,输出map_date到数据库\n
         """
 
         def extract_trade_date():
@@ -82,10 +82,10 @@ class SentCalculator(Base):
         # 分片更新
         update_by_limit()
 
-    def extract_panel_data(self):
+    def extract_panel_data(self) -> pd.DataFrame:
         """
         转为标准的面板数据用于计算/n
-        :return:
+        :return:面板数据
         """
 
         def extract():
@@ -107,6 +107,9 @@ class SentCalculator(Base):
         return extract()
 
     def cal_sentiment_index(self):
+        """
+        根据面板数据,聚合计算情绪指数,保存到数据库
+        """
         import numpy as np
         # 提取
         df_select = self.extract_panel_data()
@@ -116,10 +119,10 @@ class SentCalculator(Base):
         df_group = (df_select.groupby('t_date')
                     .agg({'is_neg': 'sum', 't_date': 'count'})
                     .rename(columns={'is_neg': 'neg_count', 't_date': 'all_count'}).reset_index())
-        # 图像情绪指数
-        df_group['img_neg'] = df_group['neg_count'] / df_group['all_count']
+        # 情绪指数
+        df_group['neg_index'] = df_group['neg_count'] / df_group['all_count']
         # 储存
-        self.save_sql(df_group[['t_date', 'img_neg']], self.SAVE_NAME)
+        self.save_sql(df_group[['t_date', 'neg_index']], self.SAVE_NAME)
 
 
 class RegCalculator(Base):
@@ -135,9 +138,9 @@ class RegCalculator(Base):
         from pystata import stata
         self.STATA_API = stata
         # -----------------------------运行配置-----------------------------------#
-        self.SENT_TYPE = 'img'
-        self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]
-        self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]
+        self.SENT_TYPE = ['img', 'text'][0]
+        self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]  # 情绪指数
+        self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]  # 股票指数
 
     def __set_df_to_stata(self, df: pd.DataFrame):
         self.STATA_API.pdataframe_to_data(df, force=True)
@@ -156,6 +159,7 @@ class RegCalculator(Base):
             提取因变量:股指\n
             :return: 包含多个股指和平方项的时间序列数据
             """
+
             # 提取
             def extract():
                 def rename_table(name): return 'idx_' + name.lower().replace('.', '_')
@@ -190,13 +194,13 @@ class RegCalculator(Base):
             :return: 包含情绪指数的数据
             """
             # 提取
-            df_sents = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{self.SENTIMENT_TABLES[0]}' ",
-                                   con=self.ENGINE).rename(columns={f'{self.SENT_TYPE}_neg': self.SENTIMENT_TABLES[0]})
+            df_sents = pd.read_sql(f"SELECT t_date,neg_index FROM '{self.SENTIMENT_TABLES[0]}' ",
+                                   con=self.ENGINE).rename(columns={'neg_index': self.SENTIMENT_TABLES[0]})
             self.SENTIMENT_TABLES.remove(self.SENTIMENT_TABLES[0])
 
             for i in self.SENTIMENT_TABLES:
-                df_sent = pd.read_sql(f"SELECT t_date,{self.SENT_TYPE}_neg FROM '{i}' ", con=self.ENGINE).rename(
-                    columns={f'{self.SENT_TYPE}_neg': i})
+                df_sent = pd.read_sql(f"SELECT t_date,neg_index FROM '{i}' ", con=self.ENGINE).rename(
+                    columns={'neg_index': i})
                 df_sents = pd.merge(df_sents, df_sent, on='t_date', how='left')
             # 提取
             return df_sents
