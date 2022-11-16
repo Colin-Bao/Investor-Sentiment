@@ -68,3 +68,47 @@ class DownLoader(Base):
 
         # 更新下载完的图片
         self.update_by_temp(down(extract()), self.ARTICLE_TABLE, 'cover_local', 'id')
+
+
+class ImgGenerator(Base):
+    """
+    图片生成,用于生成数据验证分类器效果
+    """
+
+    def __init__(self, NICKNAME_LIST):
+        super(ImgGenerator, self).__init__()
+        self.NICKNAME_LIST = NICKNAME_LIST
+
+    def get_test_set(self):
+        def extract(nickname):
+            df_select = pd.read_sql(
+                f"SELECT cover_local FROM {self.ARTICLE_TABLE} "
+                "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NOT NULL "
+                "ORDER BY random() LIMIT 100",
+                con=self.ENGINE, params={'biz': self.MAP_NICK[nickname],
+                                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
+                                         'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
+                                         'mov': 10},
+            )
+            return df_select
+
+        def gen_test_set() -> None:
+            # 随机取样
+            df_test_set = pd.DataFrame()
+            for i in [extract(i) for i in self.NICKNAME_LIST]:
+                df_test_set = pd.concat([df_test_set, i])
+            df_test_set = df_test_set.sample(n=100)
+
+            # 下载到本地
+            import os
+            copy_path = '/Users/mac/Downloads/load_img/testset/'
+
+            def copy(x):
+                f_path = copy_path + x['cover_local'].split('/')[-1]
+                os.system(f"cp {x['cover_local']} {f_path}")
+
+            df_test_set.apply(lambda x: copy(x), axis=1)
+
+        gen_test_set()
+
+# s = ImgGenerator(['中国证券报', '财新网', '央视财经', '界面新闻'])

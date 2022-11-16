@@ -7,13 +7,13 @@ class SentCalculator(Base):
     从article中的列,按照交易日期聚合情绪
     """
 
-    def __init__(self, SENT_TYPE, NEG_VALUE):
+    def __init__(self, SENT_TYPE, NEG_VALUE, NICKNAME_LIST):
         super(SentCalculator, self).__init__()
         self.TRADE_TABLE = '399300.SZ'  # 用作指数计算
         self.MAP_TABLE = 'map_date'
         self.UPDATE_LIMIT = 2000  # 分片更新
         self.NEG_VALUE = NEG_VALUE  # 临界值
-        self.NICKNAME_LIST = ['中国证券报', '财新网', '央视财经', '界面新闻']
+        self.NICKNAME_LIST = NICKNAME_LIST
         self.SENT_TYPE = SENT_TYPE
         self.NEG_COLUMN = {'img': 'cover_neg', 'text': 'title_neg'}[self.SENT_TYPE]  # 用于聚合计算的列
         self.SAVE_NAME = f'{self.SENT_TYPE}_sent_{len(self.NICKNAME_LIST)}_{int(self.NEG_VALUE * 100)}'  # 输出的名字

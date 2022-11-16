@@ -8,9 +8,10 @@ class ImgClassifier(Base):
     def __init__(self):
         super(ImgClassifier, self).__init__()
         self.MODEL_PATH = '/Users/mac/PycharmProjects/Google-V3/img_predict/twitter_tl_500.h5'
+        self.TESTSET_PATH = '/Users/mac/Downloads/load_img/testset/'
         self.BATCH_SIZE = 512
 
-    def get_imgs_by_gzh(self, biz):
+    def extract_imgs_by_gzh(self, biz):
         """
         从数据库获取待预测的图片\n
         :return:
@@ -29,6 +30,17 @@ class ImgClassifier(Base):
             return df_select
 
         return extract()
+
+    def extract_imgs_by_testset(self):
+        """
+        在测试集中生成图片
+        :return:
+        """
+        import os
+        df_select = pd.DataFrame(os.listdir(self.TESTSET_PATH)).rename(columns={0: 'cover_local'})
+        df_select['id'] = df_select['cover_local'].str[:-5]
+        df_select['cover_local'] = self.TESTSET_PATH + df_select['cover_local']
+        return df_select[['id', 'cover_local']]
 
     def predict_imgs(self, df_query: pd.DataFrame):
         """
@@ -83,3 +95,7 @@ class ImgClassifier(Base):
         # 预测结果与原表拼在一起
         df_res = pd.concat([df_query[['id']], df_pred[[0]]], axis=1).rename(columns={0: 'cover_neg'})
         self.update_by_temp(df_res, self.ARTICLE_TABLE, 'cover_neg', 'id')
+
+
+s = ImgClassifier()
+print(s.extract_imgs_by_testset())

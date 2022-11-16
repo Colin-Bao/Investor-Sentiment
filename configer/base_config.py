@@ -35,6 +35,7 @@ class Base(DB):
         self.GZH_LIST = self.__get_gzhs()['biz'].to_list()  # 所有的公众号列表
         self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的公众号列表
         self.TABLE_LIST = self.__get_tables()['name'].to_list()
+        self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))
 
     def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs", con=self.ENGINE)
 

@@ -14,7 +14,7 @@ def img_loader():
 def imgsent_analyzer():
     from analyzer.img_analyzer import SentCalculator, RegCalculator
     import sys
-    with SentCalculator('img', 0.55) as Calculator:
+    with SentCalculator('img', 0.55,['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
@@ -29,7 +29,7 @@ def img_classifier():
     with ImgClassifier() as ImgClassifier:
         for gzh in ImgClassifier.GZH_LIST:
             while True:
-                imgs = ImgClassifier.get_imgs_by_gzh(gzh)
+                imgs = ImgClassifier.extract_imgs_by_gzh(gzh)
                 if imgs.empty:
                     break
                 ImgClassifier.predict_imgs(imgs)
