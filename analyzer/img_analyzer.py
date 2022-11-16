@@ -3,6 +3,9 @@ from configer.base_config import Base
 
 
 class SentCalculator(Base):
+    """
+    从article中的列,按照交易日期聚合情绪
+    """
 
     def __init__(self):
         super(SentCalculator, self).__init__()
@@ -141,6 +144,9 @@ class RegCalculator(Base):
         self.SENT_TYPE = ['img', 'text'][0]
         self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]  # 情绪指数
         self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]  # 股票指数
+        self.SENTIMENT_VARIABLE = []  # 用于回归的变量列表X
+        self.SHAREINDEX_VARIABLE = []  # 用于回归的变量列表Y
+        self.DUMMY_VARIABLE = []  # 用于回归的虚拟变量列表
 
     def __set_df_to_stata(self, df: pd.DataFrame):
         self.STATA_API.pdataframe_to_data(df, force=True)
@@ -175,16 +181,31 @@ class RegCalculator(Base):
                     df_index = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{table_name}' ", con=self.ENGINE).rename(
                         columns={'pct_chg': rename_table(table_name)})
                     df_indexs = pd.merge(df_indexs, df_index, on='trade_date', how='left')
-                # 排序
+
+                # 获取因变量列名
+                self.SHAREINDEX_VARIABLE = df_indexs.columns.to_list()
+                self.SHAREINDEX_VARIABLE.remove('trade_date')
                 return df_indexs
 
-            def transform(df_indexs):
-                # 转换
+            def transform(df_indexs) -> pd.DataFrame:
+                """
+                转换和增加计算列\n
+                :param df_indexs:原始的指数数据
+                :return:
+                """
+                # 设置索引
                 df_indexs.set_index('trade_date', inplace=True)
+
                 # 增加平方项
                 df_indexs_s = df_indexs ** 2
                 df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
-                return pd.concat([df_indexs_s, df_indexs], axis=1).reset_index()
+
+                # 增加星期虚拟变量
+                df_weekday = pd.get_dummies(pd.to_datetime(df_indexs_s.index).weekday, prefix='weekday',
+                                            drop_first=True).set_index(df_indexs.index)
+                self.DUMMY_VARIABLE = df_weekday.columns.to_list()
+
+                return pd.concat([df_indexs, df_indexs_s, df_weekday], axis=1).reset_index()
 
             return transform(extract())
 
@@ -202,34 +223,48 @@ class RegCalculator(Base):
                 df_sent = pd.read_sql(f"SELECT t_date,neg_index FROM '{i}' ", con=self.ENGINE).rename(
                     columns={'neg_index': i})
                 df_sents = pd.merge(df_sents, df_sent, on='t_date', how='left')
-            # 提取
+
+            # 自变量变量列表
+            self.SENTIMENT_VARIABLE = df_sents.columns.to_list()
+            self.SENTIMENT_VARIABLE.remove('t_date')
             return df_sents
 
         return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
                         how='left').sort_values('trade_date', ascending=True)
 
     def var_regression(self):
-        def do_file():
+        """
+        向量自回归\n
+        """
+
+        def do_set_time():
             do = """
             //创建时间序列和设定
             ge time=_n
             tsset time
-            
-            //生成平方项
-            
+            """
+            return do
+
+        def do_var_reg(y_share_index, x_sent_index, z_dummy_list):
+            do = f"""
             //描述性统计
             des
             
             //VAR回归
-            var idx_000011_sh, lags(1/5) exog(L(1/5).idx_000001_sh_s L(1/5).img_sent_4_55)
-            var idx_399001_sz, lags(1/5) exog(L(1/5).idx_399001_sz_s L(1/5).img_sent_4_55)
-            var idx_000011_sh, lags(1/5) exog(L(1/5).idx_000011_sh_s L(1/5).img_sent_4_55)
-            var idx_399307_sz, lags(1/5) exog(L(1/5).idx_399307_sz_s L(1/5).img_sent_4_55)
-            var idx_399300_sz, lags(1/5) exog(L(1/5).idx_399300_sz_s L(1/5).img_sent_4_55)
+            var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})
             """
             return do
 
-        df_prepare = self.prepare_data()
-        # print(df)
-        self.__set_df_to_stata(df_prepare)
-        self.__run_stata_do(do_file())
+        def var_by_group():
+            # 获取所有的数据
+            self.__set_df_to_stata(self.prepare_data())
+            # 设置时间序列
+            self.__run_stata_do(do_set_time())
+            # 迭代回归
+            X_LIST, Y_LIST, Z_LIST = self.SENTIMENT_VARIABLE, self.SHAREINDEX_VARIABLE, self.DUMMY_VARIABLE
+            for do_file in [do_var_reg(Y, X, ' '.join(Z_LIST)) for X in X_LIST for Y in Y_LIST]:
+                self.__run_stata_do(do_file)
+
+        var_by_group()
+        # self.prepare_data()
+        # print(','.join(self.DUMMY_VARIABLE))
