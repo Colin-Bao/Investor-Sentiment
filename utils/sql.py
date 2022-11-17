@@ -2,6 +2,7 @@ import pandas as pd
 
 
 class DB:
+
     def __init__(self):
         # -------------------------------数据库后端---------------------------------#
         from sqlalchemy import create_engine
@@ -28,14 +29,11 @@ class Base(DB):
 
     def __init__(self):
         super(Base, self).__init__()
-        # -------------------------------数据库后端---------------------------------#
-        self.ARTICLE_TABLE = 'articles_copy1'  # 引用的数据库
-
         # -------------------------------使用配置---------------------------------#
+        self.TABLE_LIST = self.__get_tables()['name'].to_list()  # 所有的表
+        self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的绰号列表
         self.GZH_LIST = self.__get_gzhs()['biz'].to_list()  # 所有的公众号列表
-        self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的公众号列表
-        self.TABLE_LIST = self.__get_tables()['name'].to_list()
-        self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))
+        self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))  # 映射绰号到公众号
 
     def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs", con=self.ENGINE)
 
