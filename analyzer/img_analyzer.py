@@ -200,12 +200,15 @@ class RegCalculator(Base):
                 df_indexs_s = df_indexs ** 2
                 df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
 
-                # 增加星期虚拟变量
+                # 增加日期虚拟变量
                 df_weekday = pd.get_dummies(pd.to_datetime(df_indexs_s.index).weekday, prefix='weekday',
                                             drop_first=True).set_index(df_indexs.index)
-                self.DUMMY_VARIABLE = df_weekday.columns.to_list()
+                df_month = pd.get_dummies(pd.to_datetime(df_indexs_s.index).month, prefix='month',
+                                          drop_first=True).set_index(df_indexs.index)
 
-                return pd.concat([df_indexs, df_indexs_s, df_weekday], axis=1).reset_index()
+                self.DUMMY_VARIABLE = df_weekday.columns.to_list() + df_month.columns.to_list()
+
+                return pd.concat([df_indexs, df_indexs_s, df_weekday, df_month], axis=1).reset_index()
 
             return transform(extract())
 
@@ -232,27 +235,37 @@ class RegCalculator(Base):
         return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
                         how='left').sort_values('trade_date', ascending=True)
 
-    def var_regression(self):
+    def regression(self, reg_type):
         """
         向量自回归\n
         """
 
         def do_set_time(): return 'ge time=_n \n tsset time'
 
-        def do_var_reg(y_share_index, x_sent_index,
-                       z_dummy_list): return f'var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})'
+        def select_reg_type():
+            return {'var_l5': do_var_reg_l5, 'var_l2': do_var_reg_l2}[reg_type]
 
-        def var_by_group():
-            # 获取所有的数据
+        def do_var_reg_l5(y_share_index, x_sent_index,
+                          z_dummy_list): return f'var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})'
+
+        def do_var_reg_l2(y_share_index, x_sent_index,
+                          z_dummy_list): return f'var {y_share_index}, lags(1/2) exog(L(1/2).{y_share_index}_s L(1/2).{x_sent_index} {z_dummy_list})'
+
+        def reg_by_group():
+            """
+            分组回归,组合所有因变量与自变量\n
+            """
+            import sys
+            f = open(f'output/{reg_type}.log', 'w+')
+            sys.stdout = f
+            # 准备用于回归的数据
             self.__set_df_to_stata(self.prepare_data())
             # 设置时间序列
             self.__run_stata_do(do_set_time())
             # 迭代回归
             X_LIST, Y_LIST, Z_LIST = self.SENTIMENT_VARIABLE, self.SHAREINDEX_VARIABLE, self.DUMMY_VARIABLE
-            for do_file in [do_var_reg(Y, X, ' '.join(Z_LIST)) for X in X_LIST for Y in Y_LIST]:
+            for do_file in [select_reg_type()(Y, X, ' '.join(Z_LIST)) for X in X_LIST for Y in Y_LIST]:
                 self.__run_stata_do(do_file)
+            f.close()
 
-        var_by_group()
-
-        # self.prepare_data()
-        # print(','.join(self.DUMMY_VARIABLE))
+        reg_by_group()

@@ -18,10 +18,7 @@ def imgsent_analyzer():
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
-        f = open(r'output/var_res.log', 'w+')
-        sys.stdout = f
-        RegCalculator.var_regression()
-        f.close()
+        RegCalculator.regression('var_l2')
 
 
 def img_classifier():
@@ -40,5 +37,5 @@ def img_classifier():
 if __name__ == '__main__':
     # findata_loader()
     # img_loader()
-    img_classifier()
+    # img_classifier()
     imgsent_analyzer()
