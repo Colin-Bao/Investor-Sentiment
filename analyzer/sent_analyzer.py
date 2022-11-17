@@ -212,9 +212,9 @@ class RegCalculator(Base):
                     self.DUMMY_VARIABLE = ['weekday_*'] + ['month_*']
                     return pd.concat([df_weekday, df_month], axis=1)
 
-                df_transform = WinsorizeStats(df_indexs)
+                df_winsor = WinsorizeStats(df_indexs)
 
-                return pd.concat([df_transform, add_square_column(df_transform), add_dummy_column(df_transform)],
+                return pd.concat([df_winsor, add_square_column(df_winsor), add_dummy_column(df_winsor)],
                                  axis=1).reset_index()
 
             return transform(extract())
