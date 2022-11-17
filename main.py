@@ -11,14 +11,13 @@ def img_loader():
             DownLoader.load_cover_by_gzh(gzh)
 
 
-def imgsent_analyzer():
-    from analyzer.img_analyzer import SentCalculator, RegCalculator
-    import sys
+def sent_analyzer():
+    from analyzer.sent_analyzer import SentCalculator, RegCalculator
     with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
-        RegCalculator.regression('var', 3)
+        RegCalculator.regression('VAR', 5)
 
 
 def img_classifier():
@@ -38,4 +37,4 @@ if __name__ == '__main__':
     # findata_loader()
     # img_loader()
     # img_classifier()
-    imgsent_analyzer()
+    sent_analyzer()

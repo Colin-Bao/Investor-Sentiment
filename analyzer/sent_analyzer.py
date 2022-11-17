@@ -237,30 +237,45 @@ class RegCalculator(Base):
 
     def regression(self, reg_type, lag):
         """
-        向量自回归\n
+        回归算法\n
         """
 
         def do_set_time():
             return 'ge time=_n \n tsset time'
 
-        def select_reg_type(): return do_var_reg_lag if reg_type == 'var' else do_var_reg_lag
+        def select_reg_type(): return do_var_reg_lag if reg_type == 'VAR' else do_linear_reg_lag
 
         def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list):
-            return f'var {y_share_index}, lags(1/{lag}) exog(L(1/{lag}).{y_share_index}_s L(1/{lag}).{x_sent_index} {z_dummy_list})'
+            return f'var {y_share_index}, lags(1/{lag}) exog(L(1/{lag}).{x_sent_index} L(1/{lag}).{y_share_index}_s {z_dummy_list})'
+
+        def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list):
+            return f'reg {y_share_index} L(1/{lag}).{x_sent_index} L(1/{lag}).{y_share_index} L(1/{lag}).{y_share_index}_s {z_dummy_list} ,r'
 
         def reg_by_group():
             """
             分组回归,组合所有因变量与自变量\n
             """
             import sys
-            f = open(f'output/{reg_type}_l{lag}.log', 'w+')
-            sys.stdout = f
+
             # 准备用于回归的数据
             self.__set_df_to_stata(self.prepare_data())
+            Y_LIST, X_LIST, Z_LIST = self.SHAREINDEX_VARIABLE, self.SENTIMENT_VARIABLE, self.DUMMY_VARIABLE
+
+            # 输出config
+            def get_config() -> dict:
+                gzh_num = max([int(i[9:10]) for i in self.SENTIMENT_VARIABLE])
+                p_num = len(set([i[-2:] for i in self.SENTIMENT_VARIABLE]))
+                return {'gzh_num': gzh_num, 'p_num': p_num}
+
+            cfg = get_config()
+            f = open(f"output/{reg_type}_L{lag}_G{cfg['gzh_num']}_P{cfg['p_num']}.log", 'w+')
+            sys.stdout = f
+
             # 设置时间序列
             self.__run_stata_do(do_set_time())
+
             # 迭代回归
-            X_LIST, Y_LIST, Z_LIST = self.SENTIMENT_VARIABLE, self.SHAREINDEX_VARIABLE, self.DUMMY_VARIABLE
+
             for do_file in [select_reg_type()(Y, X, ' '.join(Z_LIST)) for X in X_LIST for Y in Y_LIST]:
                 self.__run_stata_do(do_file)
             f.close()
