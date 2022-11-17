@@ -1,6 +1,6 @@
 def findata_loader():
     from loader.findata_loader import DownLoader
-    with DownLoader() as DownLoader:
+    with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
         DownLoader.load_index()
 
 
@@ -19,6 +19,7 @@ def sent_analyzer():
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
         RegCalculator.regression('VAR', 5)
+        RegCalculator.regression('LIN', 2)
 
 
 def img_classifier():

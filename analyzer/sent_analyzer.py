@@ -193,22 +193,33 @@ class RegCalculator(Base):
                 :param df_indexs:原始的指数数据
                 :return:
                 """
-                # 设置索引
-                df_indexs.set_index('trade_date', inplace=True)
 
-                # 增加平方项
-                df_indexs_s = df_indexs ** 2
-                df_indexs_s.rename(columns={i: i + '_s' for i in df_indexs.columns}, inplace=True)
+                # 增加缩尾处理
+                def WinsorizeStats(df):
+                    from scipy.stats import mstats
+                    # 设置索引
+                    df_indexs.set_index('trade_date', inplace=True)
+                    return df.apply(lambda x: mstats.winsorize(x, limits=[0.01, 0.01]), axis=0)
 
-                # 增加日期虚拟变量
-                df_weekday = pd.get_dummies(pd.to_datetime(df_indexs_s.index).weekday, prefix='weekday',
-                                            drop_first=True).set_index(df_indexs.index)
-                df_month = pd.get_dummies(pd.to_datetime(df_indexs_s.index).month, prefix='month',
-                                          drop_first=True).set_index(df_indexs.index)
+                def add_square_column(df):
+                    # 增加平方项
+                    df_s = df ** 2
+                    df_s.rename(columns={i: i + '_s' for i in df.columns}, inplace=True)
+                    return df_s
 
-                self.DUMMY_VARIABLE = ['weekday_*'] + ['month_*']
+                def add_dummy_column(df):
+                    # 增加日期虚拟变量
+                    df_weekday = pd.get_dummies(pd.to_datetime(df.index).weekday, prefix='weekday',
+                                                drop_first=True).set_index(df_indexs.index)
+                    df_month = pd.get_dummies(pd.to_datetime(df.index).month, prefix='month',
+                                              drop_first=True).set_index(df_indexs.index)
+                    self.DUMMY_VARIABLE = ['weekday_*'] + ['month_*']
+                    return pd.concat([df_weekday, df_month], axis=1)
 
-                return pd.concat([df_indexs, df_indexs_s, df_weekday, df_month], axis=1).reset_index()
+                df_indexs = WinsorizeStats(df_indexs)
+
+                return pd.concat([df_indexs, add_square_column(df_indexs), add_dummy_column(df_indexs)],
+                                 axis=1).reset_index()
 
             return transform(extract())
 
@@ -254,7 +265,7 @@ class RegCalculator(Base):
             return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n vargranger'
 
         def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list):
-            return f'reg {y_share_index} L(1/{lag}).{x_sent_index} L(1/{lag}).{y_share_index} L(1/{lag}).{y_share_index}_s {z_dummy_list} ,r'
+            return f'reg {y_share_index} L(0/{lag}).{x_sent_index} L1.{y_share_index} {z_dummy_list} ,r'
 
         def reg_by_group():
             """

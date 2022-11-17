@@ -12,9 +12,9 @@ class TuShare(DB):
 
 
 class DownLoader(TuShare):
-    def __init__(self):
+    def __init__(self, INDEX_LIST):
         super(DownLoader, self).__init__()
-        self.INDEX_LIST = ['000001.SH', '399001.SZ', '000011.SH', '399307.SZ', '399300.SZ']
+        self.INDEX_LIST = INDEX_LIST
 
     def load_index(self):
         def extract(code): return self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I',
