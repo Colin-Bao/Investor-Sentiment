@@ -3,7 +3,7 @@
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/analyzer/sent_analyzer.py" dialect="SQLite" />
     <file url="file://$PROJECT_DIR$/classifier/cnn_img_classifier.py" dialect="SQLite" />
-    <file url="file://$PROJECT_DIR$/configer/base_config.py" dialect="SQLite" />
     <file url="file://$PROJECT_DIR$/loader/img_loader.py" dialect="SQLite" />
+    <file url="file://$PROJECT_DIR$/utils/sql.py" dialect="SQLite" />
   </component>
 </project>

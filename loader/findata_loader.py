@@ -1,4 +1,4 @@
-from configer.base_config import DB
+from utils.sql import DB
 
 
 class TuShare(DB):

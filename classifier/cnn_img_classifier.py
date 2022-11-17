@@ -1,5 +1,5 @@
 import pandas as pd
-from configer.base_config import Base
+from utils.sql import Base
 
 
 # 熵选法
