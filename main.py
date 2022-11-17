@@ -18,7 +18,7 @@ def imgsent_analyzer():
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
     with RegCalculator() as RegCalculator:
-        RegCalculator.regression('var_l2')
+        RegCalculator.regression('var', 3)
 
 
 def img_classifier():

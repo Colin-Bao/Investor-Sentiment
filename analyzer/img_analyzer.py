@@ -235,28 +235,25 @@ class RegCalculator(Base):
         return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
                         how='left').sort_values('trade_date', ascending=True)
 
-    def regression(self, reg_type):
+    def regression(self, reg_type, lag):
         """
         向量自回归\n
         """
 
-        def do_set_time(): return 'ge time=_n \n tsset time'
+        def do_set_time():
+            return 'ge time=_n \n tsset time'
 
-        def select_reg_type():
-            return {'var_l5': do_var_reg_l5, 'var_l2': do_var_reg_l2}[reg_type]
+        def select_reg_type(): return do_var_reg_lag if reg_type == 'var' else do_var_reg_lag
 
-        def do_var_reg_l5(y_share_index, x_sent_index,
-                          z_dummy_list): return f'var {y_share_index}, lags(1/5) exog(L(1/5).{y_share_index}_s L(1/5).{x_sent_index} {z_dummy_list})'
-
-        def do_var_reg_l2(y_share_index, x_sent_index,
-                          z_dummy_list): return f'var {y_share_index}, lags(1/2) exog(L(1/2).{y_share_index}_s L(1/2).{x_sent_index} {z_dummy_list})'
+        def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list):
+            return f'var {y_share_index}, lags(1/{lag}) exog(L(1/{lag}).{y_share_index}_s L(1/{lag}).{x_sent_index} {z_dummy_list})'
 
         def reg_by_group():
             """
             分组回归,组合所有因变量与自变量\n
             """
             import sys
-            f = open(f'output/{reg_type}.log', 'w+')
+            f = open(f'output/{reg_type}_l{lag}.log', 'w+')
             sys.stdout = f
             # 准备用于回归的数据
             self.__set_df_to_stata(self.prepare_data())
