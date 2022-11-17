@@ -5,7 +5,6 @@ def findata_loader():
 
 
 def img_loader():
-
     from loader.img_loader import DownLoader
     with DownLoader() as DownLoader:
         for gzh in DownLoader.GZH_LIST:
@@ -17,9 +16,9 @@ def sent_analyzer():
     with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
         Calculator.map_trade_date()
         Calculator.cal_sentiment_index()
-    with RegCalculator() as RegCalculator:
+    with RegCalculator([0.01, 0.01]) as RegCalculator:
         RegCalculator.regression('VAR', 5)
-        RegCalculator.regression('LIN', 2)
+        # RegCalculator.regression('LIN', 2)
 
 
 def img_classifier():

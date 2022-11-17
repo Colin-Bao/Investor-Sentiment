@@ -133,7 +133,7 @@ class RegCalculator(Base):
     用于回归分析
     """
 
-    def __init__(self):
+    def __init__(self, WINSORIZE_LIMIT):
         super(RegCalculator, self).__init__()
         # -----------------------------STATA配置-----------------------------------#
         from pystata import config
@@ -141,6 +141,7 @@ class RegCalculator(Base):
         from pystata import stata
         self.STATA_API = stata
         # -----------------------------运行配置-----------------------------------#
+        self.WINSORIZE_LIMIT = WINSORIZE_LIMIT
         self.SENT_TYPE = ['img', 'text'][0]
         self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]  # 情绪指数
         self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]  # 股票指数
@@ -159,6 +160,7 @@ class RegCalculator(Base):
         提取回归前的数据准备\n
         :return:
         """
+        from scipy.stats import mstats
 
         def extract_shareindex() -> pd.DataFrame:
             """
@@ -170,36 +172,25 @@ class RegCalculator(Base):
             def extract():
                 def rename_table(name): return 'idx_' + name.lower().replace('.', '_')
 
-                # 把第一个作为参照
-                df_indexs = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{self.SHAREINDEX_TABLES[0]}' ",
-                                        con=self.ENGINE).rename(
-                    columns={'pct_chg': rename_table(self.SHAREINDEX_TABLES[0])})
-                self.SHAREINDEX_TABLES.remove(self.SHAREINDEX_TABLES[0])
-
+                df_indexs = pd.DataFrame()
                 # 拼接
                 for table_name in self.SHAREINDEX_TABLES:
                     df_index = pd.read_sql(f"SELECT trade_date,pct_chg FROM '{table_name}' ", con=self.ENGINE).rename(
-                        columns={'pct_chg': rename_table(table_name)})
-                    df_indexs = pd.merge(df_indexs, df_index, on='trade_date', how='left')
-
+                        columns={'pct_chg': rename_table(table_name)}).set_index('trade_date')
+                    # 假设有一样的交易日期
+                    df_indexs = pd.concat([df_indexs, df_index], axis=1)
                 # 获取因变量列名
                 self.SHAREINDEX_VARIABLE = df_indexs.columns.to_list()
-                self.SHAREINDEX_VARIABLE.remove('trade_date')
                 return df_indexs
 
             def transform(df_indexs) -> pd.DataFrame:
                 """
                 转换和增加计算列\n
                 :param df_indexs:原始的指数数据
-                :return:
                 """
 
-                # 增加缩尾处理
-                def WinsorizeStats(df):
-                    from scipy.stats import mstats
-                    # 设置索引
-                    df_indexs.set_index('trade_date', inplace=True)
-                    return df.apply(lambda x: mstats.winsorize(x, limits=[0.01, 0.01]), axis=0)
+                def WinsorizeStats(df): return df.apply(lambda x: mstats.winsorize(x, limits=self.WINSORIZE_LIMIT),
+                                                        axis=0)
 
                 def add_square_column(df): return df.pow(2).rename(columns={i: i + '_s' for i in df.columns})
 
@@ -212,7 +203,8 @@ class RegCalculator(Base):
                     self.DUMMY_VARIABLE = ['weekday_*'] + ['month_*']
                     return pd.concat([df_weekday, df_month], axis=1)
 
-                df_winsor = WinsorizeStats(df_indexs)
+                # df_winsor = WinsorizeStats(df_indexs)
+                df_winsor = df_indexs
 
                 return pd.concat([df_winsor, add_square_column(df_winsor), add_dummy_column(df_winsor)],
                                  axis=1).reset_index()
@@ -222,22 +214,27 @@ class RegCalculator(Base):
         def extract_sentiment() -> pd.DataFrame:
             """
             提取所有算法的情绪指数\n
-            :return: 包含情绪指数的数据
             """
-            # 提取
-            df_sents = pd.read_sql(f"SELECT t_date,neg_index FROM '{self.SENTIMENT_TABLES[0]}' ",
-                                   con=self.ENGINE).rename(columns={'neg_index': self.SENTIMENT_TABLES[0]})
-            self.SENTIMENT_TABLES.remove(self.SENTIMENT_TABLES[0])
 
-            for i in self.SENTIMENT_TABLES:
-                df_sent = pd.read_sql(f"SELECT t_date,neg_index FROM '{i}' ", con=self.ENGINE).rename(
-                    columns={'neg_index': i})
-                df_sents = pd.merge(df_sents, df_sent, on='t_date', how='left')
+            def extract():
+                df_sents = pd.DataFrame()
+                for i in self.SENTIMENT_TABLES:
+                    df_sent = pd.read_sql(f"SELECT t_date,neg_index FROM '{i}' ", con=self.ENGINE).rename(
+                        columns={'neg_index': i}).set_index('t_date')
+                    df_sents = pd.concat([df_sents, df_sent], axis=1)
+                # 自变量变量列表
+                self.SENTIMENT_VARIABLE = df_sents.columns.to_list()
+                return df_sents
 
-            # 自变量变量列表
-            self.SENTIMENT_VARIABLE = df_sents.columns.to_list()
-            self.SENTIMENT_VARIABLE.remove('t_date')
-            return df_sents
+            def transform(df_extract) -> pd.DataFrame:
+                def WinsorizeStats(df): return df.apply(lambda x: mstats.winsorize(x, limits=self.WINSORIZE_LIMIT),
+                                                        axis=0)
+
+                def Standardized(df): return (df - df.mean()) / (df.std())
+
+                return Standardized(WinsorizeStats(df_extract)).reset_index()
+
+            return transform(extract())
 
         return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
                         how='left').sort_values('trade_date', ascending=True)
