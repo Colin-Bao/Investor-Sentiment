@@ -203,7 +203,7 @@ class RegCalculator(Base):
 
                 def add_square_column(df):
                     # 增加平方项
-                    df_s = df ** 2
+                    df_s = (df ** 2)
                     df_s.rename(columns={i: i + '_s' for i in df.columns}, inplace=True)
                     return df_s
 
