@@ -5,6 +5,7 @@ def findata_loader():
 
 
 def img_loader():
+
     from loader.img_loader import DownLoader
     with DownLoader() as DownLoader:
         for gzh in DownLoader.GZH_LIST:
