@@ -201,24 +201,20 @@ class RegCalculator(Base):
                     df_indexs.set_index('trade_date', inplace=True)
                     return df.apply(lambda x: mstats.winsorize(x, limits=[0.01, 0.01]), axis=0)
 
-                def add_square_column(df):
-                    # 增加平方项
-                    df_s = (df ** 2)
-                    df_s.rename(columns={i: i + '_s' for i in df.columns}, inplace=True)
-                    return df_s
+                def add_square_column(df): return df.pow(2).rename(columns={i: i + '_s' for i in df.columns})
 
                 def add_dummy_column(df):
                     # 增加日期虚拟变量
                     df_weekday = pd.get_dummies(pd.to_datetime(df.index).weekday, prefix='weekday',
-                                                drop_first=True).set_index(df_indexs.index)
+                                                drop_first=True).set_index(df.index)
                     df_month = pd.get_dummies(pd.to_datetime(df.index).month, prefix='month',
-                                              drop_first=True).set_index(df_indexs.index)
+                                              drop_first=True).set_index(df.index)
                     self.DUMMY_VARIABLE = ['weekday_*'] + ['month_*']
                     return pd.concat([df_weekday, df_month], axis=1)
 
-                df_indexs = WinsorizeStats(df_indexs)
+                df_transform = WinsorizeStats(df_indexs)
 
-                return pd.concat([df_indexs, add_square_column(df_indexs), add_dummy_column(df_indexs)],
+                return pd.concat([df_transform, add_square_column(df_transform), add_dummy_column(df_transform)],
                                  axis=1).reset_index()
 
             return transform(extract())
