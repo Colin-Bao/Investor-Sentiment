@@ -145,4 +145,3 @@ class ImgClassifier(Base):
         return res
 
 
-ImgClassifier().calculate_metrics()
