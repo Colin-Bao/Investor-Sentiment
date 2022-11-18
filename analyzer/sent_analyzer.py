@@ -265,8 +265,8 @@ class RegCalculator(Base):
                    f"irf creat gi, set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step(5) \n" \
                    f"irf graph oirf, impulse({x_sent_index}) response({y_share_index}) lstep(1) ustep({lag}) name({x_sent_index}_{y_share_index})" \
                    'byopts(note("")) byopts(legend(off)) xtitle(, size(small) margin(zero)) ' \
-                   'ysc(r(-0.15,0.15)) yline(0) ylabel(#2) ytitle(return, size(small) margin(zero)) scheme(sj)\n' \
-                   f'#graph export imgs/{x_sent_index}_{y_share_index}.png ,replace \n'
+                   'ysc(r(-0.15,0.15)) yline(0) ylabel(#2) ytitle(return, size(small) margin(zero)) scheme(sj)\n'
+            # f'#graph export imgs/{x_sent_index}_{y_share_index}.png ,replace \n'
 
         def do_graph_combine(graph_list, x_sent_index, cfg):
             return f'graph combine {graph_list}, xcommon ycommon name({cfg}_{x_sent_index}, replace) scheme(sj)\n' \
