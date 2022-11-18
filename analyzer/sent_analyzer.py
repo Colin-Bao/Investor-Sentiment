@@ -138,6 +138,8 @@ class RegCalculator(Base):
         # -----------------------------STATA配置-----------------------------------#
         from pystata import config
         config.init('mp')
+        # config.set_graph_show(True)
+        # config.set_graph_format('pdf')
         from pystata import stata
         self.STATA_API = stata
         # -----------------------------运行配置-----------------------------------#
@@ -148,6 +150,7 @@ class RegCalculator(Base):
         self.SENTIMENT_VARIABLE = []  # 用于回归的变量列表X
         self.SHAREINDEX_VARIABLE = []  # 用于回归的变量列表Y
         self.DUMMY_VARIABLE = []  # 用于回归的虚拟变量列表
+        self.OUTPUT_ROOT = '/Users/mac/PycharmProjects/investor_sentiment/output/'
 
     def __set_df_to_stata(self, df: pd.DataFrame):
         self.STATA_API.pdataframe_to_data(df, force=True)
@@ -248,16 +251,22 @@ class RegCalculator(Base):
             """
             模型描述性统计和设定
             """
-            sum_var = f'tabstat {y_share_index} {x_sent_index} {z_dummy_list} ,s(N sd mean p50 min max ) f(%12.4f) c(s) \n'
-            time_set = 'ge time=_n \n tsset time'
-            return sum_var + time_set
+            return f'tabstat {y_share_index} {x_sent_index} {z_dummy_list} ,s(N sd mean p50 min max ) f(%12.4f) c(s) \n' \
+                   'ge time=_n \n' \
+                   'tsset time \n'
 
         def select_reg_type(): return do_var_reg_lag if reg_type == 'VAR' else do_linear_reg_lag
 
-        def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list):
-            return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n vargranger'
+        # %self.STATA_API stata
+        def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
+            return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n' \
+                   'varstable \n vargranger  \n' \
+                   f'cd {self.OUTPUT_ROOT} \n' \
+                   f"irf creat gi,set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step(5) \n" \
+                   f"irf graph oirf, impulse({x_sent_index}) response({y_share_index}) lstep(1) ustep({lag}) yline(0) \n" \
+                   f"graph export imgs/{x_sent_index}_{y_share_index}.png ,replace \n"
 
-        def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list):
+        def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
             return f'reg {y_share_index} L(0/{lag}).{x_sent_index} L1.{y_share_index} {z_dummy_list} ,r'
 
         def reg_by_group():
@@ -270,25 +279,23 @@ class RegCalculator(Base):
             self.__set_df_to_stata(self.prepare_data())
             Y_LIST, X_LIST, Z_LIST = self.SHAREINDEX_VARIABLE, self.SENTIMENT_VARIABLE, self.DUMMY_VARIABLE
 
-            # print(Y_LIST, X_LIST, Z_LIST)
-
             # 输出config
-            def get_config() -> dict:
+            def get_config() -> str:
                 gzh_num = max([int(i[9:10]) for i in self.SENTIMENT_VARIABLE])
                 p_num = len(set([i[-2:] for i in self.SENTIMENT_VARIABLE]))
-                return {'gzh_num': gzh_num, 'p_num': p_num}
+                return f"{reg_type}_L{lag}_G{gzh_num}_P{p_num}"
 
             cfg = get_config()
 
             # 输出stata运行结果
-            with open(f"output/{reg_type}_L{lag}_G{cfg['gzh_num']}_P{cfg['p_num']}.log", 'w+') as f:
+            with open(f'output/{cfg}.log', 'w+') as f:
                 sys.stdout = f
 
                 # 设置时间序列
                 self.__run_stata_do(do_model_set(' '.join(Y_LIST), ' '.join(X_LIST), ' '.join(Z_LIST)))
 
                 # 迭代回归
-                for do_file in [select_reg_type()(Y, X, ' '.join(Z_LIST)) for X in X_LIST for Y in Y_LIST]:
+                for do_file in [select_reg_type()(Y, X, ' '.join(Z_LIST), cfg) for X in X_LIST for Y in Y_LIST]:
                     self.__run_stata_do(do_file)
 
         reg_by_group()
