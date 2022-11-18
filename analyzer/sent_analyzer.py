@@ -260,13 +260,20 @@ class RegCalculator(Base):
 
         def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
             return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n' \
-                   'varstable \n vargranger  \n' \
+                   'varwle \nvarstable \n vargranger  \n' \
                    f'cd {self.OUTPUT_ROOT} \n' \
-                   f"irf creat gi, set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step(5) \n" \
-                   f"irf graph oirf, impulse({x_sent_index}) response({y_share_index}) lstep(1) ustep({lag}) name({x_sent_index}_{y_share_index})" \
+                   f"irf creat gi, set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step({lag}) \n" \
+                   f"irf graph oirf, impulse({x_sent_index}) response({y_share_index}) lstep(0) ustep({lag}) name({x_sent_index}_{y_share_index})" \
                    'byopts(note("")) byopts(legend(off)) xtitle(, size(small) margin(zero)) ' \
-                   'ysc(r(-0.15,0.15)) yline(0) ylabel(#2) ytitle(return, size(small) margin(zero)) scheme(sj)\n'
-            # f'#graph export imgs/{x_sent_index}_{y_share_index}.png ,replace \n'
+                   'ysc(r(-0.15,0.15)) yline(0) ylabel(#2) ytitle(return, size(small) margin(zero)) scheme(sj)\n' \
+                   f'*注释:调试单张图片* graph export imgs/{x_sent_index}_{y_share_index}.png ,replace \n'
+
+        def do_var_test(x_sent_index):
+            test_0 = f'l1.{x_sent_index}'
+            test_1 = '+'.join([f'l{i}.{x_sent_index}' for i in range(2, lag)])
+            test_2 = '+'.join([f'l{i}.{x_sent_index}' for i in range(1, lag + 1)])
+            return f'te ({test_1}=0)\n' \
+                   f'te ({test_2}=0)  \n'
 
         def do_graph_combine(graph_list, x_sent_index, cfg):
             return f'graph combine {graph_list}, xcommon ycommon name({cfg}_{x_sent_index}, replace) scheme(sj)\n' \
@@ -299,11 +306,11 @@ class RegCalculator(Base):
 
                 # 设置时间序列
                 self.__run_stata_do(do_model_set(' '.join(Y_LIST), ' '.join(X_LIST), ' '.join(Z_LIST)))
-
                 # 迭代回归
                 for X in X_LIST:
                     for Y in Y_LIST:
                         self.__run_stata_do(select_reg_type()(Y, X, ' '.join(Z_LIST), cfg))
+                        self.__run_stata_do(do_var_test(X))
                     # 把核心解释变量拼起来
                     self.__run_stata_do(do_graph_combine(' '.join(list(map(lambda y: X + '_' + y, Y_LIST))), X, cfg))
 
