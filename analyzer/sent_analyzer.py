@@ -146,7 +146,6 @@ class RegCalculator(Base):
         self.WINSORIZE_LIMIT = WINSORIZE_LIMIT
         self.SENT_TYPE = ['img', 'text'][0]
         self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]  # 情绪指数
-        self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]  # 股票指数
         self.SENTIMENT_VARIABLE = []  # 用于回归的变量列表X
         self.SHAREINDEX_VARIABLE = []  # 用于回归的变量列表Y
         self.DUMMY_VARIABLE = []  # 用于回归的虚拟变量列表
