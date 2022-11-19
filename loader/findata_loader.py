@@ -139,24 +139,50 @@ class FinDerCalulator(Base):
 
     def cal_high_low(self):
 
-        def extract_mv_panel():
-            df_select = pd.read_sql(
-                f"SELECT ann_date,stockcode,s_val_mv FROM ASHARE_MV WHERE ann_date BETWEEN :sd AND :ed ",
-                con=self.ENGINE, params={'sd': int(self.START_DATE), 'ed': int(self.END_DATE), })
-            return df_select.rename(columns={'ann_date': 'trade_date', 'stockcode': 'ts_code'})
+        def extract_data():
+            def extract_mv_panel():
+                df_select = pd.read_sql(
+                    f"SELECT ann_date,stockcode,s_val_mv FROM ASHARE_MV WHERE ann_date BETWEEN :sd AND :ed ",
+                    con=self.ENGINE, params={'sd': int(self.START_DATE), 'ed': int(self.END_DATE), })
+                return df_select.rename(columns={'ann_date': 'trade_date', 'stockcode': 'ts_code'})
 
-        def extract_code_panel():
-            df_select = pd.read_sql('SELECT * FROM csi300_panel_O5_R30 ', self.ENGINE)
-            return df_select
+            def extract_code_panel():
+                df_select = pd.read_sql('SELECT * FROM csi300_panel_O5_R30 ', self.ENGINE)
+                return df_select
 
-        def extract():
-            if 'temp_panel_merge' not in self.TABLE_LIST:
-                df_mer = pd.merge(extract_code_panel(), extract_mv_panel(), how='left', on=['trade_date', 'ts_code'])
-                self.save_sql(df_mer, 'temp_panel_merge')
-            return pd.read_sql('SELECT * FROM temp_panel_merge', self.ENGINE)
+            def extract():
+                if 'temp_panel_merge' not in self.TABLE_LIST:
+                    df_mer = pd.merge(extract_code_panel(), extract_mv_panel(), how='left',
+                                      on=['trade_date', 'ts_code'])
+                    self.save_sql(df_mer, 'temp_panel_merge')
+                return pd.read_sql('SELECT * FROM temp_panel_merge LIMIT 100000', self.ENGINE).sort_values(
+                    by=['trade_date', 'ts_code'],
+                    ascending=True).fillna(0)
 
-        df = extract()
-        print(df)
+            return extract()
+
+        def cal_by_group(df_extract):
+            import numpy as np
+            df_e = df_extract[['trade_date', 'ts_code', 'pct_chg', 's_val_mv', 'residual_var']].set_index(
+                'trade_date')
+
+            # 按照residual_var分组
+            df_e['rv_q90'] = df_e['residual_var'].groupby(df_e.index).transform(
+                lambda x: x.quantile(0.90))
+            df_e['rv_q10'] = df_e['residual_var'].groupby(df_e.index).transform(
+                lambda x: x.quantile(0.10))
+            df_e['rv_group'] = np.where(df_e['residual_var'] >= df_e['rv_q90'], 'HIGH', "MID")
+            df_e['rv_group'] = np.where(df_e['residual_var'] <= df_e['rv_q10'], 'LOW', df_e['rv_group'])
+
+            # 求组中市值加权系数,并求回报
+            df_e['mv_group_ratio'] = df_e['s_val_mv'] / df_e.groupby([df_e.index, 'rv_group'])['s_val_mv'].transform(
+                lambda x: sum(x))
+            df_e['group_return'] = df_e['mv_group_ratio'] * df_e['pct_chg']
+            df_e['vw_return'] = df_e.groupby([df_e.index, 'rv_group'])['group_return'].transform(lambda x: sum(x))
+
+            return df_e
+
+        return cal_by_group(extract_data())
 
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
@@ -166,4 +192,4 @@ class FinDerCalulator(Base):
 
 with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
     Calulator.cal_idvol('CAPM')
-    Calulator.cal_high_low()
+    df = Calulator.cal_high_low()
