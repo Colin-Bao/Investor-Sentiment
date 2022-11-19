@@ -131,13 +131,6 @@ class FinDerCalulator(Base):
 
         self.save_sql(concat_panel(), f'csi300_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}')
 
-        # df_index = pd.merge(df_index, cal_by_code(c), how='left', left_on=['trade_date', 'con_code'],
-        #                     right_on=['trade_date', 'ts_code'])
-        # extract_index()
-        # self.ENGINE.execute("ALTER TABLE '000001.SZ' ADD test FLOAT")
-
-    # def cal_
-
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
 #     DownLoader.load_index()
