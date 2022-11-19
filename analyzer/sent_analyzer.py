@@ -262,7 +262,7 @@ class RegCalculator(Base):
             return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n' \
                    'varwle \nvarstable \n vargranger  \n' \
                    f'cd {self.OUTPUT_ROOT} \n' \
-                   f"irf creat gi, set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step({lag}) \n" \
+                   f"irf creat var, set(irfs/{cfg}_{y_share_index}_{x_sent_index} ,replace) step({lag}) \n" \
                    f"irf graph oirf, impulse({x_sent_index}) response({y_share_index}) lstep(0) ustep({lag}) name({x_sent_index}_{y_share_index})" \
                    'byopts(note("")) byopts(legend(off)) xtitle(, size(small) margin(zero)) ' \
                    'ysc(r(-0.15,0.15)) yline(0) ylabel(#2) ytitle(return, size(small) margin(zero)) scheme(sj)\n' \
