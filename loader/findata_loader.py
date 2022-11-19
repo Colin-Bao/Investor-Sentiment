@@ -133,6 +133,10 @@ class FinDerCalulator(Base):
         if table_idvol not in self.TABLE_LIST:
             self.save_sql(concat_panel(), table_idvol)
 
+    def cal_high_low(self):
+        def extract_panel():
+            df_select = pd.read_sql('SELECT * FROM csi300_panel_O5_R30')
+
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
 #     DownLoader.load_index()
