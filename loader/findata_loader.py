@@ -129,7 +129,9 @@ class FinDerCalulator(Base):
                 df_code_panel = pd.concat([df_code_panel, cal_by_code(code, df_index_daily, df_shibor_daily)], axis=0)
             return df_code_panel.reset_index().sort_values(by=['trade_date', 'ts_code'], ascending=False)
 
-        self.save_sql(concat_panel(), f'csi300_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}')
+        table_idvol = f'csi300_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}'
+        if table_idvol not in self.TABLE_LIST:
+            self.save_sql(concat_panel(), table_idvol)
 
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
