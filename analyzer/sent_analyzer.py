@@ -305,7 +305,7 @@ class RegCalculator(Base):
             return f'reg {y_share_index} L(0/{lag}).{x_sent_index} L1.{y_share_index} {z_dummy_list} ,r'
 
         def do_var_arbitrage(y_share_index, x_sent_index, z_dummy_list):
-            return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n'
+            return f'*do_var_arbitrage \n var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n'
 
         def reg_by_group():
             """
