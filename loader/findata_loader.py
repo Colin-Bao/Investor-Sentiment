@@ -68,7 +68,7 @@ class FinDerCalulator(Base):
     衍生数据计算
     """
 
-    def __init__(self, VAR_PERIOD: list, REFER_INDEX):
+    def __init__(self, VAR_PERIOD: int, REFER_INDEX):
         super(FinDerCalulator, self).__init__()
         self.OBSERVE_PERIOD = VAR_PERIOD
         self.REFER_INDEX = REFER_INDEX
@@ -78,20 +78,45 @@ class FinDerCalulator(Base):
         计算异质波动率
         """
 
-        def cal_by_code(code):
-            df_code = self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index('trade_date').join(
-                df_index_daily[['pct_chg']].rename(columns={'pct_chg': 'index_pct_chg'}), how='left')
-            print(df_code)
-            return df_code
+        def cal_by_code(code, df_index_daily):
+            """
+            分组计算异质波动率
+            """
 
-        df_index_weight = self.get_index_weight(self.REFER_INDEX)  # 用于匹配权重和回归
-        df_index_daily = self.get_code_daily(self.REFER_INDEX).set_index('trade_date')
-        df_code_panel = pd.DataFrame()
+            def extract_code():
+                # 拼接市场收益率
+                return self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index(
+                    'trade_date').join(
+                    df_index_daily[['pct_chg']].rename(columns={'pct_chg': 'index_pct_chg'}), how='left').fillna(0)
 
-        for c in [i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]:
-            cal_by_code(c)
-            # df_code_panel = pd.concat([df_code_panel, cal_by_code(c)], axis=0)
-            break
+            def roll_regression(df_code):
+                from sklearn.linear_model import LinearRegression
+
+                # 计算回归系数
+                def reg():
+                    linreg = LinearRegression()
+                    Y, X = df_code['pct_chg'].to_numpy().reshape(-1, 1), df_code['index_pct_chg'].to_numpy().reshape(-1,
+                                                                                                                     1)
+                    linreg.fit(X, Y)
+                    Y_PRED = linreg.predict(X)
+                    Y_Residual = Y_PRED - Y
+                    return Y_Residual
+
+                reg()
+
+            return roll_regression(extract_code())
+
+        def cal():
+            df_code_panel = pd.DataFrame()
+            df_index_daily = self.get_code_daily(self.REFER_INDEX)
+            for code in [i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]:
+                df_code_panel = pd.concat([df_code_panel, cal_by_code(code, df_index_daily)], axis=0)
+                break
+            return df_code_panel
+
+        df = cal()
+        print(df)
+
         # df_index = pd.merge(df_index, cal_by_code(c), how='left', left_on=['trade_date', 'con_code'],
         #                     right_on=['trade_date', 'ts_code'])
         # extract_index()
@@ -104,6 +129,6 @@ class FinDerCalulator(Base):
 #     DownLoader.load_index()
 #     DownLoader.load_index_members('399300.SZ')
 
-with FinDerCalulator([5], '399300.SZ') as Calulator:
+with FinDerCalulator(30, '399300.SZ') as Calulator:
     # DerCalulator
     Calulator.cal_idvol('CAPM')
