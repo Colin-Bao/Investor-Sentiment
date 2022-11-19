@@ -1,7 +1,12 @@
 def findata_loader():
-    from loader.findata_loader import DownLoader
+    from loader.findata_loader import DownLoader, FinDerCalulator
     with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
         DownLoader.load_index()
+        DownLoader.load_index_members('399300.SZ')
+        DownLoader.load_shibor()
+    with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
+        Calulator.cal_idvol('CAPM')
+        Calulator.cal_high_low()
 
 
 def img_loader():
@@ -34,7 +39,7 @@ def img_classifier():
 
 
 if __name__ == '__main__':
-    findata_loader()
+    # findata_loader()
     # img_loader()
     # img_classifier()
-    # sent_analyzer()
+    sent_analyzer()

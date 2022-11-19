@@ -149,6 +149,7 @@ class RegCalculator(Base):
         self.SENTIMENT_VARIABLE = []  # 用于回归的变量列表X
         self.SHAREINDEX_VARIABLE = []  # 用于回归的变量列表Y
         self.DUMMY_VARIABLE = []  # 用于回归的虚拟变量列表
+        self.ARBITRAGE_VARIABLE = []  # 用于回归的虚拟变量列表
         self.OUTPUT_ROOT = '/Users/mac/PycharmProjects/investor_sentiment/output/'
 
     def __set_df_to_stata(self, df: pd.DataFrame):
@@ -238,8 +239,29 @@ class RegCalculator(Base):
 
             return transform(extract())
 
-        return pd.merge(extract_sentiment(), extract_shareindex(), left_on='t_date', right_on='trade_date',
-                        how='left').sort_values('trade_date', ascending=True)
+        def extract_arbitrage() -> pd.DataFrame:
+            def extract_mv_return(): return pd.read_sql('SELECT trade_date,high,low,high_low FROM mv_vw_return',
+                                                        self.ENGINE)
+
+            def extract_rv_return(): return pd.read_sql('SELECT trade_date,high,low,high_low FROM rv_vw_return',
+                                                        self.ENGINE)
+
+            def extract():
+                df_extract = pd.merge(extract_rv_return(), extract_mv_return(), how='left', on='trade_date',
+                                      suffixes=('_rv', '_mv')).set_index('trade_date')
+                self.ARBITRAGE_VARIABLE = df_extract.columns.to_list()
+                return df_extract
+
+            def transform(df_extract):
+                def add_square_column(df): return df.pow(2).rename(columns={i: i + '_s' for i in df.columns})
+
+                return pd.concat([df_extract, add_square_column(df_extract)], axis=1).reset_index()
+
+            return transform(extract())
+
+        return pd.concat([extract_sentiment().set_index('t_date'), extract_shareindex().set_index('trade_date'),
+                          extract_arbitrage().set_index('trade_date')], axis=1).reset_index().rename(
+            columns={'index': 'trade_date'})
 
     def regression(self, reg_type, lag):
         """
@@ -250,14 +272,15 @@ class RegCalculator(Base):
             """
             模型描述性统计和设定
             """
-            return f'tabstat {y_share_index} {x_sent_index} {z_dummy_list} ,s(N sd mean p50 min max ) f(%12.4f) c(s) \n' \
+            return f'des \n' \
+                   f'tabstat {y_share_index} {x_sent_index} {z_dummy_list} ,s(N sd mean p50 min max ) f(%12.4f) c(s) \n' \
                    'ge time=_n \n' \
                    'tsset time \n'
 
-        def select_reg_type():
-            return do_var_reg_lag if reg_type == 'VAR' else do_linear_reg_lag
+        # def select_reg_type():
+        # return do_var_reg_lag if reg_type == 'VAR' else do_linear_reg_lag
 
-        def do_var_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
+        def do_var_reg(y_share_index, x_sent_index, z_dummy_list, cfg):
             return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n' \
                    'varwle \nvarstable \n vargranger  \n' \
                    f'cd {self.OUTPUT_ROOT} \n' \
@@ -281,6 +304,9 @@ class RegCalculator(Base):
         def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
             return f'reg {y_share_index} L(0/{lag}).{x_sent_index} L1.{y_share_index} {z_dummy_list} ,r'
 
+        def do_var_arbitrage(y_share_index, x_sent_index, z_dummy_list):
+            return f'var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n'
+
         def reg_by_group():
             """
             分组回归,组合所有因变量与自变量\n
@@ -289,7 +315,8 @@ class RegCalculator(Base):
 
             # 准备用于回归的数据
             self.__set_df_to_stata(self.prepare_data())
-            Y_LIST, X_LIST, Z_LIST = self.SHAREINDEX_VARIABLE, self.SENTIMENT_VARIABLE, self.DUMMY_VARIABLE
+
+            Y_LIST, X_LIST, Z_LIST, A_LIST = self.SHAREINDEX_VARIABLE, self.SENTIMENT_VARIABLE, self.DUMMY_VARIABLE, self.ARBITRAGE_VARIABLE
 
             # 输出config
             def get_config() -> str:
@@ -305,12 +332,19 @@ class RegCalculator(Base):
 
                 # 设置时间序列
                 self.__run_stata_do(do_model_set(' '.join(Y_LIST), ' '.join(X_LIST), ' '.join(Z_LIST)))
-                # 迭代回归
+
+                # 迭代回归不同的情绪
                 for X in X_LIST:
+                    # 影响分析
                     for Y in Y_LIST:
-                        self.__run_stata_do(select_reg_type()(Y, X, ' '.join(Z_LIST), cfg))
+                        # 影响的VAR
+                        self.__run_stata_do(do_var_reg(Y, X, ' '.join(Z_LIST), cfg))
                         self.__run_stata_do(do_var_test(X))
                     # 把核心解释变量拼起来
                     self.__run_stata_do(do_graph_combine(' '.join(list(map(lambda y: X + '_' + y, Y_LIST))), X, cfg))
+
+                    # 异质性分析
+                    for A in A_LIST:
+                        self.__run_stata_do(do_var_arbitrage(A, X, ' '.join(Z_LIST)))
 
         reg_by_group()
