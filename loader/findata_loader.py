@@ -48,22 +48,26 @@ class DownLoader(TuShare):
         load()
 
     def load_code(self, code):
-        return self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
-                                   start_date=self.START_DATE, end_date=self.END_DATE, ma=[5, 10, 30],
-                                   factors=['tor', 'vr'])
+        if code not in self.TABLE_LIST:
+            df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
+                                          start_date=self.START_DATE, end_date=self.END_DATE, ma=[5, 10, 30],
+                                          factors=['tor', 'vr'])
+            self.save_sql(df_code, code)
+            self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
+
+    # def load_code_
 
     def load_index_members(self, index):
         for code in tqdm(self.get_index_members(index)):
-            if code in self.TABLE_LIST:
-                continue
             try:
-                self.save_sql(self.load_code(code), code)
-                self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
+                self.load_code(code)
             except Exception as e:
                 print(e, '\n')
                 continue
 
     def load_shibor(self):
+        if 'shibor' in self.TABLE_LIST:
+            return
         df_1 = self.PRO_API.shibor(start_date=self.START_DATE, end_date=str(int(self.START_DATE) + 30000))
         df_2 = self.PRO_API.shibor(start_date=str(int(self.START_DATE) + 30000), end_date=self.END_DATE)
         df = pd.concat([df_1, df_2], axis=0).rename(columns={'date': 'trade_date'}).sort_values('trade_date',
@@ -134,8 +138,25 @@ class FinDerCalulator(Base):
             self.save_sql(concat_panel(), table_idvol)
 
     def cal_high_low(self):
-        def extract_panel():
-            df_select = pd.read_sql('SELECT * FROM csi300_panel_O5_R30')
+
+        def extract_mv_panel():
+            df_select = pd.read_sql(
+                f"SELECT ann_date,stockcode,s_val_mv FROM ASHARE_MV WHERE ann_date BETWEEN :sd AND :ed ",
+                con=self.ENGINE, params={'sd': int(self.START_DATE), 'ed': int(self.END_DATE), })
+            return df_select.rename(columns={'ann_date': 'trade_date', 'stockcode': 'ts_code'})
+
+        def extract_code_panel():
+            df_select = pd.read_sql('SELECT * FROM csi300_panel_O5_R30 ', self.ENGINE)
+            return df_select
+
+        def extract():
+            if 'temp_panel_merge' not in self.TABLE_LIST:
+                df_mer = pd.merge(extract_code_panel(), extract_mv_panel(), how='left', on=['trade_date', 'ts_code'])
+                self.save_sql(df_mer, 'temp_panel_merge')
+            return pd.read_sql('SELECT * FROM temp_panel_merge', self.ENGINE)
+
+        df = extract()
+        print(df)
 
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
@@ -145,3 +166,4 @@ class FinDerCalulator(Base):
 
 with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
     Calulator.cal_idvol('CAPM')
+    Calulator.cal_high_low()
