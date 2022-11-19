@@ -54,6 +54,8 @@ class Base(DB):
     def get_code_daily(self, code) -> pd.DataFrame: return pd.read_sql(f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
                                                                        self.ENGINE)
 
+    def get_shibor(self)->pd.DataFrame: return pd.read_sql('SELECT * FROM shibor',self.ENGINE)
+
     def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk='id'):
         """
         生成中间表来更新\n

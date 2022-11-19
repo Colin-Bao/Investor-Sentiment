@@ -40,9 +40,10 @@ class DownLoader(TuShare):
 
         def load():
             for idx in self.SHAREINDEX_LIST:
+                if idx + '_weight' in self.TABLE_LIST:
+                    continue
                 load_index_daily(idx)
                 load_index_weight(idx)
-                # if idx not in self.SHAREINDEX_TABLES:
 
         load()
 
@@ -62,15 +63,23 @@ class DownLoader(TuShare):
                 print(e, '\n')
                 continue
 
+    def load_shibor(self):
+        df_1 = self.PRO_API.shibor(start_date=self.START_DATE, end_date=str(int(self.START_DATE) + 30000))
+        df_2 = self.PRO_API.shibor(start_date=str(int(self.START_DATE) + 30000), end_date=self.END_DATE)
+        df = pd.concat([df_1, df_2], axis=0).rename(columns={'date': 'trade_date'}).sort_values('trade_date',
+                                                                                                ascending=False)
+        self.save_sql(df, 'shibor')
+
 
 class FinDerCalulator(Base):
     """
     衍生数据计算
     """
 
-    def __init__(self, VAR_PERIOD: int, REFER_INDEX):
+    def __init__(self, OLS_WINDOW: int, RS_WINDOW, REFER_INDEX):
         super(FinDerCalulator, self).__init__()
-        self.OBSERVE_PERIOD = VAR_PERIOD
+        self.OLS_WINDOW = OLS_WINDOW
+        self.RS_WINDOW = RS_WINDOW
         self.REFER_INDEX = REFER_INDEX
 
     def cal_idvol(self, method: str = 'CAPM'):
@@ -78,44 +87,49 @@ class FinDerCalulator(Base):
         计算异质波动率
         """
 
-        def cal_by_code(code, df_index_daily):
+        def cal_by_code(code, df_index_daily, df_shibor_daily):
             """
             分组计算异质波动率
             """
 
             def extract_code():
                 # 拼接市场收益率
-                return self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index(
+                df_extract = self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index(
                     'trade_date').join(
-                    df_index_daily[['pct_chg']].rename(columns={'pct_chg': 'index_pct_chg'}), how='left').fillna(0)
+                    df_index_daily[['pct_chg']].rename(columns={'pct_chg': 'index_pct_chg'}), how='left')
+                df_extract = df_extract.join(df_shibor_daily[['on']].rename(columns={'on': 'shibor_rf'}),
+                                             how='left')
+                return df_extract.fillna(0)
 
             def roll_regression(df_code):
-                from sklearn.linear_model import LinearRegression
-
                 # 计算回归系数
-                def reg():
-                    linreg = LinearRegression()
-                    Y, X = df_code['pct_chg'].to_numpy().reshape(-1, 1), df_code['index_pct_chg'].to_numpy().reshape(-1,
-                                                                                                                     1)
-                    linreg.fit(X, Y)
-                    Y_PRED = linreg.predict(X)
-                    Y_Residual = Y_PRED - Y
-                    return Y_Residual
+                from statsmodels.regression.rolling import RollingOLS
+                df_ols = pd.DataFrame()
+                df_ols['Y'] = df_code['pct_chg'] - df_code['shibor_rf']
+                df_ols['const'] = 1
+                df_ols['X'] = df_code['index_pct_chg'] - df_code['shibor_rf']
+                model = RollingOLS(endog=df_ols['Y'].values, exog=df_ols[['const', 'X']], window=5)
+                df_para = model.fit().params
+                df_para['Y_HAT'] = df_para['const'] + df_ols['X'] * df_para['X']
+                df_para['residual'] = df_para['Y_HAT'] - df_ols['Y']
+                return pd.concat([df_code, df_para['residual']], axis=1)
 
-                reg()
+            def cal_residual_square(df_res):
+                import numpy as np
+                df_res['residual_var'] = df_res[['residual']].rolling(self.RS_WINDOW).apply(lambda x: np.var(x, ddof=1))
+                return df_res
 
-            return roll_regression(extract_code())
+            return cal_residual_square(roll_regression(extract_code()))
 
-        def cal():
+        def concat_panel():
             df_code_panel = pd.DataFrame()
-            df_index_daily = self.get_code_daily(self.REFER_INDEX)
-            for code in [i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]:
-                df_code_panel = pd.concat([df_code_panel, cal_by_code(code, df_index_daily)], axis=0)
-                break
-            return df_code_panel
+            df_index_daily = self.get_code_daily(self.REFER_INDEX).set_index('trade_date')
+            df_shibor_daily = self.get_shibor().set_index('trade_date')
+            for code in tqdm([i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]):
+                df_code_panel = pd.concat([df_code_panel, cal_by_code(code, df_index_daily, df_shibor_daily)], axis=0)
+            return df_code_panel.reset_index().sort_values(by=['trade_date', 'ts_code'], ascending=False)
 
-        df = cal()
-        print(df)
+        self.save_sql(concat_panel(), f'csi300_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}')
 
         # df_index = pd.merge(df_index, cal_by_code(c), how='left', left_on=['trade_date', 'con_code'],
         #                     right_on=['trade_date', 'ts_code'])
@@ -125,10 +139,10 @@ class FinDerCalulator(Base):
     # def cal_
 
 
-# with DownLoader(['399300.SZ', ]) as DownLoader:
+# with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
 #     DownLoader.load_index()
 #     DownLoader.load_index_members('399300.SZ')
+#     DownLoader.load_shibor()
 
-with FinDerCalulator(30, '399300.SZ') as Calulator:
-    # DerCalulator
+with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
     Calulator.cal_idvol('CAPM')
