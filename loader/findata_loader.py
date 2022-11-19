@@ -36,32 +36,74 @@ class DownLoader(TuShare):
                 df_weight_con = pd.concat([df_weight_con, df_weight], axis=0)
                 # print(date, date_list[i + 1], '\n', df_weight.shape)
                 i += 1
-            self.save_sql(df_weight_con, index + '_weight')
+            self.save_sql(df_weight_con.sort_values('trade_date', ascending=False), index + '_weight')
 
         def load():
             for idx in self.SHAREINDEX_LIST:
-                if idx not in self.SHAREINDEX_TABLES:
-                    load_index_daily(idx)
-                    load_index_weight(idx)
+                load_index_daily(idx)
+                load_index_weight(idx)
+                # if idx not in self.SHAREINDEX_TABLES:
 
         load()
 
-        # _ = [self.save_sql(extract_daily(index), index) for index in self.SHAREINDEX_LIST if
-        #      index not in self.SHAREINDEX_TABLES]
-        # print(self.SHAREINDEX_TABLES)
+    def load_code(self, code):
+        return self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
+                                   start_date=self.START_DATE, end_date=self.END_DATE, ma=[5, 10, 30],
+                                   factors=['tor', 'vr'])
 
     def load_index_members(self, index):
-        pass
+        for code in tqdm(self.get_index_members(index)):
+            if code in self.TABLE_LIST:
+                continue
+            try:
+                self.save_sql(self.load_code(code), code)
+                self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
+            except Exception as e:
+                print(e, '\n')
+                continue
 
 
-class DerCalulator(TuShare):
+class FinDerCalulator(Base):
     """
     衍生数据计算
     """
 
-    def __init__(self):
-        super(DerCalulator, self).__init__()
+    def __init__(self, VAR_PERIOD: list, REFER_INDEX):
+        super(FinDerCalulator, self).__init__()
+        self.OBSERVE_PERIOD = VAR_PERIOD
+        self.REFER_INDEX = REFER_INDEX
+
+    def cal_idvol(self, method: str = 'CAPM'):
+        """
+        计算异质波动率
+        """
+
+        def cal_by_code(code):
+            df_code = self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index('trade_date').join(
+                df_index_daily[['pct_chg']].rename(columns={'pct_chg': 'index_pct_chg'}), how='left')
+            print(df_code)
+            return df_code
+
+        df_index_weight = self.get_index_weight(self.REFER_INDEX)  # 用于匹配权重和回归
+        df_index_daily = self.get_code_daily(self.REFER_INDEX).set_index('trade_date')
+        df_code_panel = pd.DataFrame()
+
+        for c in [i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]:
+            cal_by_code(c)
+            # df_code_panel = pd.concat([df_code_panel, cal_by_code(c)], axis=0)
+            break
+        # df_index = pd.merge(df_index, cal_by_code(c), how='left', left_on=['trade_date', 'con_code'],
+        #                     right_on=['trade_date', 'ts_code'])
+        # extract_index()
+        # self.ENGINE.execute("ALTER TABLE '000001.SZ' ADD test FLOAT")
+
+    # def cal_
 
 
-with DownLoader(['399300.SZ', ]) as DownLoader:
-    DownLoader.load_index()
+# with DownLoader(['399300.SZ', ]) as DownLoader:
+#     DownLoader.load_index()
+#     DownLoader.load_index_members('399300.SZ')
+
+with FinDerCalulator([5], '399300.SZ') as Calulator:
+    # DerCalulator
+    Calulator.cal_idvol('CAPM')

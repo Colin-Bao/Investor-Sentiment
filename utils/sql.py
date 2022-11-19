@@ -6,6 +6,8 @@ class DB:
     def __init__(self):
         # -------------------------------数据库后端---------------------------------#
         from sqlalchemy import create_engine
+        import sqlalchemy
+        self.SQL_API = sqlalchemy
         self.ARTICLE_TABLE = 'articles_copy1'  # 引用的数据库
         self.ENGINE = create_engine('sqlite:////Users/mac/PycharmProjects/wcplusPro7.31/db_folder/data-dev.db',
                                     echo=False, connect_args={'check_same_thread': False})
@@ -14,8 +16,10 @@ class DB:
         self.START_DATE = '20140101'
         self.END_DATE = '20221231'
 
-    def save_sql(self, df_save: pd.DataFrame, name: str) -> None: df_save.to_sql(name, self.ENGINE, index=False,
-                                                                                 if_exists='replace')
+    def save_sql(self, df_save: pd.DataFrame, name: str, schema=None) -> None: df_save.to_sql(name, self.ENGINE,
+                                                                                              index=False,
+                                                                                              schema=schema,
+                                                                                              if_exists='replace')
 
     def __enter__(self): return self
 
@@ -34,12 +38,21 @@ class Base(DB):
         self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的绰号列表
         self.GZH_LIST = self.__get_gzhs()['biz'].to_list()  # 所有的公众号列表
         self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))  # 映射绰号到公众号
-        self.SHAREINDEX_TABLES = [i for i in self.TABLE_LIST if '.SH' in i or '.SZ' in i]  # 所有的股票指数
+        self.SHAREINDEX_TABLES = ['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']  # 所有的股票指数
 
-    def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs", con=self.ENGINE)
+    def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs", self.ENGINE)
 
     def __get_tables(self) -> pd.DataFrame: return pd.read_sql("select name from sqlite_master WHERE type ='table'",
-                                                               con=self.ENGINE)
+                                                               self.ENGINE)
+
+    def get_index_members(self, index) -> list:
+        return pd.read_sql(f"SELECT DISTINCT con_code FROM '{index}_weight'", self.ENGINE)['con_code'].to_list()
+
+    def get_index_weight(self, index): return pd.read_sql(f"SELECT trade_date,con_code,weight FROM '{index}_weight' ",
+                                                          self.ENGINE)
+
+    def get_code_daily(self, code) -> pd.DataFrame: return pd.read_sql(f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
+                                                                       self.ENGINE)
 
     def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk='id'):
         """
