@@ -85,6 +85,7 @@ class FinDerCalulator(Base):
         self.OLS_WINDOW = OLS_WINDOW
         self.RS_WINDOW = RS_WINDOW
         self.REFER_INDEX = REFER_INDEX
+        self.QUANTILE = 0.9
 
     def cal_idvol(self, method: str = 'CAPM'):
         """
@@ -155,7 +156,7 @@ class FinDerCalulator(Base):
                     df_mer = pd.merge(extract_code_panel(), extract_mv_panel(), how='left',
                                       on=['trade_date', 'ts_code'])
                     self.save_sql(df_mer, 'temp_panel_merge')
-                return pd.read_sql('SELECT * FROM temp_panel_merge LIMIT 100000', self.ENGINE).sort_values(
+                return pd.read_sql('SELECT * FROM temp_panel_merge ', self.ENGINE).sort_values(
                     by=['trade_date', 'ts_code'],
                     ascending=True).fillna(0)
 
@@ -166,23 +167,48 @@ class FinDerCalulator(Base):
             df_e = df_extract[['trade_date', 'ts_code', 'pct_chg', 's_val_mv', 'residual_var']].set_index(
                 'trade_date')
 
-            # 按照residual_var分组
-            df_e['rv_q90'] = df_e['residual_var'].groupby(df_e.index).transform(
-                lambda x: x.quantile(0.90))
-            df_e['rv_q10'] = df_e['residual_var'].groupby(df_e.index).transform(
-                lambda x: x.quantile(0.10))
-            df_e['rv_group'] = np.where(df_e['residual_var'] >= df_e['rv_q90'], 'HIGH', "MID")
-            df_e['rv_group'] = np.where(df_e['residual_var'] <= df_e['rv_q10'], 'LOW', df_e['rv_group'])
+            # ------------------------按照residual_var分组------------------------#
+            df_e['rv_q_top'] = df_e['residual_var'].groupby(df_e.index).transform(
+                lambda x: x.quantile(self.QUANTILE))
+            df_e['rv_q_bom'] = df_e['residual_var'].groupby(df_e.index).transform(
+                lambda x: x.quantile(1 - self.QUANTILE))
+            df_e['rv_group'] = np.where(df_e['residual_var'] >= df_e['rv_q_top'], 'HIGH', "MID")
+            df_e['rv_group'] = np.where(df_e['residual_var'] <= df_e['rv_q_bom'], 'LOW', df_e['rv_group'])
 
             # 求组中市值加权系数,并求回报
-            df_e['mv_group_ratio'] = df_e['s_val_mv'] / df_e.groupby([df_e.index, 'rv_group'])['s_val_mv'].transform(
+            df_e['rv_group_ratio'] = df_e['s_val_mv'] / df_e.groupby([df_e.index, 'rv_group'])['s_val_mv'].transform(
                 lambda x: sum(x))
-            df_e['group_return'] = df_e['mv_group_ratio'] * df_e['pct_chg']
-            df_e['vw_return'] = df_e.groupby([df_e.index, 'rv_group'])['group_return'].transform(lambda x: sum(x))
+            df_e['rv_group_return'] = df_e['rv_group_ratio'] * df_e['pct_chg']
+            df_e['rv_vw_return'] = df_e.groupby([df_e.index, 'rv_group'])['rv_group_return'].transform(lambda x: sum(x))
 
-            return df_e
+            # ------------------------按照市值分组------------------------#
+            df_e['mv_q_top'] = df_e['s_val_mv'].groupby(df_e.index).transform(
+                lambda x: x.quantile(self.QUANTILE))
+            df_e['mv_q_bom'] = df_e['s_val_mv'].groupby(df_e.index).transform(
+                lambda x: x.quantile(1 - self.QUANTILE))
+            df_e['mv_group'] = np.where(df_e['s_val_mv'] >= df_e['mv_q_top'], 'HIGH', "MID")
+            df_e['mv_group'] = np.where(df_e['s_val_mv'] <= df_e['mv_q_bom'], 'LOW', df_e['rv_group'])
 
-        return cal_by_group(extract_data())
+            # 求组中市值加权系数,并求回报
+            df_e['mv_group_ratio'] = df_e['s_val_mv'] / df_e.groupby([df_e.index, 'mv_group'])['s_val_mv'].transform(
+                lambda x: sum(x))
+            df_e['mv_group_return'] = df_e['mv_group_ratio'] * df_e['pct_chg']
+            df_e['mv_vw_return'] = df_e.groupby([df_e.index, 'mv_group'])['mv_group_return'].transform(lambda x: sum(x))
+
+            # ------------------------转为时间序列数据------------------------#
+            df_rv = df_e[['rv_group', 'rv_vw_return']].reset_index().set_index(['trade_date', 'rv_group'])
+            df_rv = df_rv[~df_rv.index.duplicated(keep='last')].reset_index()
+            df_rv = df_rv.pivot(index='trade_date', columns='rv_group', values='rv_vw_return')
+            df_rv['HIGH_LOW'] = df_rv['HIGH'] - df_rv['LOW']  # 求高-低
+            self.save_sql(df_rv.reset_index(), 'rv_vw_return')
+
+            df_mv = df_e[['mv_group', 'mv_vw_return']].reset_index().set_index(['trade_date', 'mv_group'])
+            df_mv = df_mv[~df_mv.index.duplicated(keep='last')].reset_index()
+            df_mv = df_mv.pivot(index='trade_date', columns='mv_group', values='mv_vw_return')
+            df_mv['HIGH_LOW'] = df_mv['HIGH'] - df_mv['LOW']  # 求高-低
+            self.save_sql(df_mv.reset_index(), 'mv_vw_return')
+
+        cal_by_group(extract_data())
 
 
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
@@ -192,4 +218,4 @@ class FinDerCalulator(Base):
 
 with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
     Calulator.cal_idvol('CAPM')
-    df = Calulator.cal_high_low()
+    Calulator.cal_high_low()
