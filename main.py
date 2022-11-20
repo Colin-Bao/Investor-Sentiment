@@ -1,11 +1,11 @@
 def findata_loader():
     from loader.findata_loader import DownLoader, FinDerCalulator
     with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
-        DownLoader.load_index()
-        DownLoader.load_index_members('399300.SZ')
+        # DownLoader.load_index()
+        # DownLoader.load_index_members()
         DownLoader.load_shibor()
-    with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
-        Calulator.cal_idvol('CAPM')
+    with FinDerCalulator(5, 30, 0.6, '399300.SZ') as Calulator:
+        # Calulator.cal_idvol('CAPM')
         Calulator.cal_high_low()
 
 

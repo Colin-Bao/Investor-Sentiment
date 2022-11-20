@@ -16,10 +16,11 @@ class DB:
         self.START_DATE = '20140101'
         self.END_DATE = '20221231'
 
-    def save_sql(self, df_save: pd.DataFrame, name: str, schema=None) -> None: df_save.to_sql(name, self.ENGINE,
-                                                                                              index=False,
-                                                                                              schema=schema,
-                                                                                              if_exists='replace')
+    def save_sql(self, df_save: pd.DataFrame, name: str, if_exists='replace', schema=None) -> None: df_save.to_sql(name,
+                                                                                                                   self.ENGINE,
+                                                                                                                   index=False,
+                                                                                                                   schema=schema,
+                                                                                                                   if_exists=if_exists)
 
     def __enter__(self): return self
 
@@ -45,16 +46,17 @@ class Base(DB):
     def __get_tables(self) -> pd.DataFrame: return pd.read_sql("select name from sqlite_master WHERE type ='table'",
                                                                self.ENGINE)
 
-    def get_index_members(self, index) -> list:
-        return pd.read_sql(f"SELECT DISTINCT con_code FROM '{index}_weight'", self.ENGINE)['con_code'].to_list()
+    def get_index_members(self, ) -> list:
+        return pd.read_sql("SELECT DISTINCT stockcode FROM ASHARE_MV ", self.ENGINE)['stockcode'].to_list()
 
     def get_index_weight(self, index): return pd.read_sql(f"SELECT trade_date,con_code,weight FROM '{index}_weight' ",
                                                           self.ENGINE)
 
-    def get_code_daily(self, code) -> pd.DataFrame: return pd.read_sql(f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
-                                                                       self.ENGINE)
+    def get_code_daily(self, code) -> pd.DataFrame: return pd.read_sql(
+        f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
+        self.ENGINE)
 
-    def get_shibor(self)->pd.DataFrame: return pd.read_sql('SELECT * FROM shibor',self.ENGINE)
+    def get_shibor(self) -> pd.DataFrame: return pd.read_sql('SELECT * FROM shibor', self.ENGINE)
 
     def update_by_temp(self, df_temp: pd.DataFrame, update_table, update_column, update_pk='id'):
         """

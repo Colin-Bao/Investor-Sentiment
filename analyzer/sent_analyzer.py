@@ -307,6 +307,19 @@ class RegCalculator(Base):
         def do_var_arbitrage(y_share_index, x_sent_index, z_dummy_list):
             return f'*do_var_arbitrage \n var {y_share_index} {x_sent_index} {y_share_index}_s, lags(1/{lag}) exog({z_dummy_list}) \n'
 
+        # 'keep(L(1/5).{x_sent_index}' keep(L(1/5).{x_sent_index})eqkeep({y_share_index})
+        def do_save_var(y_share_index, x_sent_index):
+            return f'outreg2 using /Users/mac/PycharmProjects/investor_sentiment/output/outreg/reg_{x_sent_index}.doc,' \
+                   f'append tstat bdec(3) tdec(2) ' \
+                   f'ctitle({y_share_index}) addtext(Month FE, YES, Weekday FE, YES ,SUM(1-4),0, SUM(1-5),0) ' \
+                   f'keep(L(1/5).{x_sent_index}) \n'
+
+        def do_save_arbitrage(y_share_index, x_sent_index, group):
+            return f'outreg2 using /Users/mac/PycharmProjects/investor_sentiment/output/outreg/reg_{x_sent_index}_arbitrage_{group}.doc,' \
+                   f'append tstat bdec(3) tdec(2) ' \
+                   f'ctitle({y_share_index}) ' \
+                   f'keep(L(1/5).{x_sent_index}) \n'
+
         def reg_by_group():
             """
             分组回归,组合所有因变量与自变量\n
@@ -335,16 +348,22 @@ class RegCalculator(Base):
 
                 # 迭代回归不同的情绪
                 for X in X_LIST:
-                    # 影响分析
+                    # 影响分析,不同的Return
                     for Y in Y_LIST:
                         # 影响的VAR
                         self.__run_stata_do(do_var_reg(Y, X, ' '.join(Z_LIST), cfg))
+                        self.__run_stata_do(do_save_var(Y, X))
                         self.__run_stata_do(do_var_test(X))
                     # 把核心解释变量拼起来
                     self.__run_stata_do(do_graph_combine(' '.join(list(map(lambda y: X + '_' + y, Y_LIST))), X, cfg))
 
                     # 异质性分析
-                    for A in A_LIST:
-                        self.__run_stata_do(do_var_arbitrage(A, X, ' '.join(Z_LIST)))
+                    for VW in [R for R in A_LIST if 'rv' in R]:
+                        self.__run_stata_do(do_var_arbitrage(VW, X, ' '.join(Z_LIST)))
+                        self.__run_stata_do(do_save_arbitrage(VW, X, 'rv'))
+
+                    for VW in [M for M in A_LIST if 'mv' in M]:
+                        self.__run_stata_do(do_var_arbitrage(VW, X, ' '.join(Z_LIST)))
+                        self.__run_stata_do(do_save_arbitrage(VW, X, 'mv'))
 
         reg_by_group()

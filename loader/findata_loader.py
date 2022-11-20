@@ -17,6 +17,10 @@ class DownLoader(TuShare):
     def __init__(self, SHAREINDEX_LIST):
         super(DownLoader, self).__init__()
         self.SHAREINDEX_LIST = SHAREINDEX_LIST
+        from threading import Lock
+        self.lock = Lock()
+        self.tasks_total = len(self.get_index_members())
+        self.tasks_completed = 0
 
     def load_index(self):
         def load_index_daily(index):
@@ -49,21 +53,41 @@ class DownLoader(TuShare):
 
     def load_code(self, code):
         if code not in self.TABLE_LIST:
-            df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
-                                          start_date=self.START_DATE, end_date=self.END_DATE, ma=[5, 10, 30],
-                                          factors=['tor', 'vr'])
-            self.save_sql(df_code, code)
-            self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
+            try:
+                df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
+                                              start_date=self.START_DATE, end_date=self.END_DATE, )
+                # ma = [5, 10, 30],
+                # factors = ['tor', 'vr']
+                self.save_sql(df_code, code)
+                # self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
+            except Exception as e:
+                print(e)
 
     # def load_code_
 
-    def load_index_members(self, index):
-        for code in tqdm(self.get_index_members(index)):
-            try:
-                self.load_code(code)
-            except Exception as e:
-                print(e, '\n')
-                continue
+    def load_index_members(self, ):
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        def progress_indicator(future):
+            # obtain the lock
+            with self.lock:
+                # update the counter
+                self.tasks_completed += 1
+                # report progress
+                print(
+                    f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(self.load_code, table) for table in self.get_index_members()]
+            for future in futures:
+                future.add_done_callback(progress_indicator)
+            # for code in tqdm(self.get_index_members()):
+            #     try:
+            #         self.load_code(code)
+            #     except Exception as e:
+            #         print(e, '\n')
+            #         continue
 
     def load_shibor(self):
         if 'shibor' in self.TABLE_LIST:
@@ -72,6 +96,7 @@ class DownLoader(TuShare):
         df_2 = self.PRO_API.shibor(start_date=str(int(self.START_DATE) + 30000), end_date=self.END_DATE)
         df = pd.concat([df_1, df_2], axis=0).rename(columns={'date': 'trade_date'}).sort_values('trade_date',
                                                                                                 ascending=False)
+        # print(df)
         self.save_sql(df, 'shibor')
 
 
@@ -80,12 +105,12 @@ class FinDerCalulator(Base):
     衍生数据计算
     """
 
-    def __init__(self, OLS_WINDOW: int, RS_WINDOW, REFER_INDEX):
+    def __init__(self, OLS_WINDOW: int, RS_WINDOW, QUANTILE, REFER_INDEX):
         super(FinDerCalulator, self).__init__()
         self.OLS_WINDOW = OLS_WINDOW
         self.RS_WINDOW = RS_WINDOW
         self.REFER_INDEX = REFER_INDEX
-        self.QUANTILE = 0.9
+        self.QUANTILE = QUANTILE
 
     def cal_idvol(self, method: str = 'CAPM'):
         """
@@ -126,17 +151,23 @@ class FinDerCalulator(Base):
 
             return cal_residual_square(roll_regression(extract_code()))
 
-        def concat_panel():
+        def concat_panel(save_name):
             df_code_panel = pd.DataFrame()
             df_index_daily = self.get_code_daily(self.REFER_INDEX).set_index('trade_date')
             df_shibor_daily = self.get_shibor().set_index('trade_date')
-            for code in tqdm([i for i in self.get_index_members(self.REFER_INDEX) if i in self.TABLE_LIST]):
-                df_code_panel = pd.concat([df_code_panel, cal_by_code(code, df_index_daily, df_shibor_daily)], axis=0)
-            return df_code_panel.reset_index().sort_values(by=['trade_date', 'ts_code'], ascending=False)
+            for code in tqdm([i for i in self.get_index_members() if i in self.TABLE_LIST]):
+                try:
+                    df_code_panel = cal_by_code(code, df_index_daily, df_shibor_daily).reset_index().sort_values(
+                        by=['trade_date'], ascending=True)
+                    self.save_sql(df_code_panel, save_name, if_exists='append')
+
+                except Exception as e:
+                    print(code, e)
+                    continue
 
         table_idvol = f'csi300_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}'
         if table_idvol not in self.TABLE_LIST:
-            self.save_sql(concat_panel(), table_idvol)
+            concat_panel(table_idvol)
 
     def cal_high_low(self):
 
@@ -158,7 +189,7 @@ class FinDerCalulator(Base):
                     self.save_sql(df_mer, 'temp_panel_merge')
                 return pd.read_sql('SELECT * FROM temp_panel_merge ', self.ENGINE).sort_values(
                     by=['trade_date', 'ts_code'],
-                    ascending=True).fillna(0)
+                    ascending=True)
 
             return extract()
 
@@ -187,7 +218,7 @@ class FinDerCalulator(Base):
             df_e['mv_q_bom'] = df_e['s_val_mv'].groupby(df_e.index).transform(
                 lambda x: x.quantile(1 - self.QUANTILE))
             df_e['mv_group'] = np.where(df_e['s_val_mv'] >= df_e['mv_q_top'], 'high', "mid")
-            df_e['mv_group'] = np.where(df_e['s_val_mv'] <= df_e['mv_q_bom'], 'low', df_e['rv_group'])
+            df_e['mv_group'] = np.where(df_e['s_val_mv'] <= df_e['mv_q_bom'], 'low', df_e['mv_group'])
 
             # 求组中市值加权系数,并求回报
             df_e['mv_group_ratio'] = df_e['s_val_mv'] / df_e.groupby([df_e.index, 'mv_group'])['s_val_mv'].transform(
