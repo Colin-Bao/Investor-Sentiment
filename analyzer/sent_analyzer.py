@@ -259,6 +259,25 @@ class RegCalculator(Base):
 
             return transform(extract())
 
+        def extract_analyst() -> pd.DataFrame:
+            def extract():
+                df_extract = pd.read_sql(
+                f"SELECT INDEX_CODE,CON_DATE,cover_local FROM con_forecast_idx "
+                "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NULL",
+                con=self.ENGINE, params={'biz': biz,
+                                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
+                                         'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
+                                         'mov': 10},
+                parse_dates=["p_date"], )
+                return df_extract
+
+            def transform(df_extract):
+                return df_extract
+
+            return transform(extract())
+
+        # extract_analyst()
+        # exit()
         return pd.concat([extract_sentiment().set_index('t_date'), extract_shareindex().set_index('trade_date'),
                           extract_arbitrage().set_index('trade_date')], axis=1).reset_index().rename(
             columns={'index': 'trade_date'})

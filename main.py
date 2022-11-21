@@ -18,11 +18,11 @@ def img_loader():
 
 def sent_analyzer():
     from analyzer.sent_analyzer import SentCalculator, RegCalculator
-    with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
-        Calculator.map_trade_date()
-        Calculator.cal_sentiment_index()
+    # with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
+    #     Calculator.map_trade_date()
+    #     Calculator.cal_sentiment_index()
     with RegCalculator([0.01, 0.01]) as RegCalculator:
-        RegCalculator.regression('VAR', 5)
+        RegCalculator.regression('VAR', 10)
 
 
 def img_classifier():
@@ -38,8 +38,17 @@ def img_classifier():
         ImgClassifier.calculate_metrics()
 
 
+def test():
+    import pandas as pd
+    from loader.img_loader import DownLoader
+    df = pd.read_parquet('/Users/mac/Downloads/suntime_dataset/con_forecast_idx.parquet')
+    with DownLoader() as DownLoader:
+        DownLoader.save_sql(df, 'con_forecast_idx')
+
+
 if __name__ == '__main__':
     # findata_loader()
     # img_loader()
     # img_classifier()
     sent_analyzer()
+    # test()
