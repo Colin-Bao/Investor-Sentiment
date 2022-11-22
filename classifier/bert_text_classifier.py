@@ -12,7 +12,7 @@ class TextClassifier(ImgClassifier):
     def __init__(self):
         super(TextClassifier, self).__init__()
         self.MODEL_PATH = '/Users/mac/PycharmProjects/pythonProject/saved/FinBERT/checkpoint-1000'
-        self.HYPER_PARAS = {'MAX_LENGTH': 32}
+        self.HYPER_PARAS = {'MAX_LENGTH': 32, 'BATCH_SIZE': 512}
 
     def extract_apply_dataset(self):
         """
@@ -22,13 +22,11 @@ class TextClassifier(ImgClassifier):
         def extract():
             df_extract = pd.read_sql(
                 f"SELECT id,title FROM {self.ARTICLE_TABLE} "
-                "WHERE mov=:mov AND p_date BETWEEN :sd AND :ed "
-                "AND title IS NOT NULL AND title_neg IS NULL LIMIT :limit_size",
-                con=self.ENGINE, params={'mov': 10,
-                                         'limit_size': self.BATCH_SIZE}, )
+                "WHERE mov=:mov AND title IS NOT NULL AND title_neg IS NULL LIMIT :limit_size ",
+                con=self.ENGINE, params={'mov': 10, 'limit_size': self.HYPER_PARAS['BATCH_SIZE']}, )
             return df_extract
 
-        pass
+        return extract()
 
     # 执行预测
     def predict_from_model(self, input_list: list) -> pd.DataFrame:
