@@ -4,6 +4,10 @@
 # @Time      :2022/11/23 05:58
 # @Author    :Colin
 # @Note      :None
+from typing import Union
+
+from pandas import DataFrame, Series
+
 from classifier.cnn_img_classifier import ImgClassifier
 import pandas as pd
 
@@ -29,7 +33,7 @@ class TextClassifier(ImgClassifier):
         return extract()
 
     # 执行预测
-    def predict_from_model(self, input_list: list) -> pd.DataFrame:
+    def predict_from_bertmodel(self, input_list: list) -> pd.DataFrame:
         # 获取预训练的模型
         from transformers import BertTokenizer, BertForSequenceClassification
         tokenizer = BertTokenizer.from_pretrained(self.MODEL_PATH)
@@ -40,11 +44,35 @@ class TextClassifier(ImgClassifier):
         out = model(**encoded)
         probs = out.logits.softmax(dim=-1)
 
-        # 返回预测
-        return pd.DataFrame(probs.detach().numpy()).rename(columns={0: 'positove', 1: 'neutral', 2: 'negative'})
+        # 返回预测 {0: 'positove', 1: 'neutral', 2: 'negative'}
+        return pd.DataFrame(probs.detach().numpy()[:, 2]).rename(columns={0: 'title_neg'})
+
+    def predict_texts_batch(self, ):
+        """
+        预测和更新
+        :return:
+        """
+        from tqdm import tqdm
+        null_row = self.get_count_null('title_neg', self.ARTICLE_TABLE)
+        if null_row.shape[0] == 1:
+            return
+        pbar = tqdm(range(null_row['NUM'][1]))
+        pbar.update(null_row['NUM'][0])
+
+        while True:
+            df_input = self.extract_apply_dataset()
+            if df_input.empty:
+                break
+            df_pred = self.predict_from_bertmodel(df_input['title'].to_list())
+            self.update_by_temp(pd.concat([df_input, df_pred], axis=1), self.ARTICLE_TABLE, 'title_neg', 'id')
+
+            pbar.update(self.HYPER_PARAS['BATCH_SIZE'])
+            pbar.refresh()
 
 
 if __name__ == "__main__":
     with TextClassifier() as TextClassifier:
-        res = TextClassifier.predict_from_model(['不好的重大交通事故', '迎来了重大利好,股市一片欣欣向荣'])
-        print(res)
+        TextClassifier.predict_texts_batch()
+        # print(df.shape)
+# res = TextClassifier.predict_from_model(['不好的重大交通事故', '迎来了重大利好,股市一片欣欣向荣'])
+#         print(res)

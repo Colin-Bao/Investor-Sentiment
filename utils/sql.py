@@ -75,3 +75,7 @@ class Base(DB):
                   WHERE EXISTS(SELECT {update_pk},{update_column} FROM {update_table_temp} AS temp WHERE temp.{update_pk} = tar.{update_pk})
                   """
         self.ENGINE.execute(sql)
+
+    def get_count_null(self, null_column, table_name):
+        return pd.read_sql(f"SELECT COUNT({null_column}) AS NUM FROM {table_name} WHERE mov=10  UNION "
+                           f"SELECT COUNT(id) FROM {table_name} WHERE mov=10", self.ENGINE)
