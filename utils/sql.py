@@ -78,4 +78,8 @@ class Base(DB):
 
     def get_count_null(self, null_column, table_name):
         return pd.read_sql(f"SELECT COUNT({null_column}) AS NUM FROM {table_name} WHERE mov=10  UNION "
-                           f"SELECT COUNT(id) FROM {table_name} WHERE mov=10", self.ENGINE)
+                           f"SELECT COUNT(id) FROM {table_name} WHERE  biz IN ('MjM5MzMwNjM0MA==','MjY2NzgwMjU0MA==','MjM5NzQ5MTkyMA==','MjM5NTE0ODc2Nw==')",
+                           self.ENGINE)
+
+    def get_sent_index(self):
+        return pd.read_sql("SELECT trade_date,img_sent,text_sent FROM sent_index", self.ENGINE)

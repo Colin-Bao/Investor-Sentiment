@@ -8,8 +8,8 @@ class ImgClassifier(Base):
     def __init__(self):
         super(ImgClassifier, self).__init__()
         self.MODEL_PATH = '/Users/mac/PycharmProjects/Google-V3/img_predict/twitter_tl_500.h5'
-        self.TESTSET_PATH = '/Users/mac/Downloads/load_img/testset/'
-        self.TESTSET_TAG_PATH = '/Users/mac/Downloads/load_img/testset_tag.csv'
+        self.TESTSET_PATH = '/Users/mac/Downloads/DataSets/load_img/testset/'
+        self.TESTSET_TAG_PATH = '/Users/mac/Downloads/DataSets/load_img/testset_tag.csv'
         self.BATCH_SIZE = 512
 
     def extract_imgs_by_gzh(self, biz):

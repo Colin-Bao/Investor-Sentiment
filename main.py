@@ -19,21 +19,28 @@ def img_loader():
 def sent_analyzer():
     from analyzer.sent_analyzer import SentCalculator, RegCalculator
     # with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
-    #     Calculator.map_trade_date()
+    #     # Calculator.map_trade_date()
     #     Calculator.cal_sentiment_index()
-    with RegCalculator([0.01, 0.01]) as RegCalculator:
-        RegCalculator.regression('VAR', 10)
+    with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as imgCalculator:
+        imgCalculator.cal_sentiment_index()
+    with RegCalculator([0.01, 0.01], 'img') as imgRegCalculator:
+        imgRegCalculator.regression('VAR', 5)
+    #
+    # with SentCalculator('text', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
+    #     Calculator.cal_sentiment_index()
+    # with RegCalculator([0.01, 0.01], 'text') as RegCalculator:
+    #     RegCalculator.regression('VAR', 5)
 
 
 def img_classifier():
     from classifier.cnn_img_classifier import ImgClassifier
     with ImgClassifier() as ImgClassifier:
-        for gzh in ImgClassifier.GZH_LIST:
-            while True:
-                imgs = ImgClassifier.extract_imgs_by_gzh(gzh)
-                if imgs.empty:
-                    break
-                ImgClassifier.update_pred(ImgClassifier.predict_imgs(imgs))
+        # for gzh in ImgClassifier.GZH_LIST:
+        #     while True:
+        #         imgs = ImgClassifier.extract_imgs_by_gzh(gzh)
+        #         if imgs.empty:
+        #             break
+        #         ImgClassifier.update_pred(ImgClassifier.predict_imgs(imgs))
         # 模型评估
         ImgClassifier.calculate_metrics()
 

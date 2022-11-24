@@ -105,12 +105,72 @@ class FinDerCalulator(Base):
     衍生数据计算
     """
 
-    def __init__(self, OLS_WINDOW: int, RS_WINDOW, QUANTILE, REFER_INDEX):
+    def __init__(self, OLS_WINDOW: int, RS_WINDOW, QUANTILE=0.4, REFER_INDEX='399300.SZ'):
         super(FinDerCalulator, self).__init__()
         self.OLS_WINDOW = OLS_WINDOW
         self.RS_WINDOW = RS_WINDOW
         self.REFER_INDEX = REFER_INDEX
         self.QUANTILE = QUANTILE
+
+    def cal_sentiment_r(self) -> pd.DataFrame:
+        """
+        计算情绪残差
+        """
+
+        def cal_by_code(code, df_sent_daily, df_shibor_daily):
+            """
+            分组计算异质波动率
+            """
+
+            def extract_code():
+                # 拼接市场收益率
+                df_extract = self.get_code_daily(code).sort_values('trade_date', ascending=True).set_index(
+                    'trade_date').join(df_sent_daily, how='left').join(df_shibor_daily, how='left')
+                return df_extract
+
+            def roll_regression(df_code):
+                # 计算回归系数
+                from statsmodels.regression.rolling import RollingOLS
+                df_ols = pd.DataFrame()
+
+                # 估计img
+                df_ols['Y'], df_ols['const'], df_ols['X'] = df_code['pct_chg'], 1, df_code['img_sent']
+                df_ols = df_ols.replace(0, 0.000001)  # 除0 错误
+                model = RollingOLS(endog=df_ols['Y'].values, exog=df_ols[['const', 'X']], window=5)
+                df_para = model.fit().params
+                df_residual_img = (df_para['const'] + df_ols['X'] * df_para['X']) - df_ols['Y']
+
+                # 估计text
+                df_ols['X'] = df_code['text_sent']
+                model = RollingOLS(endog=df_ols['Y'].values, exog=df_ols[['const', 'X']], window=5)
+                df_para = model.fit().params
+                df_residual_text = (df_para['const'] + df_ols['X'] * df_para['X']) - df_ols['Y']
+                return pd.concat([df_code, df_residual_img, df_residual_text], axis=1).rename(
+                    columns={0: 'r_img', 1: 'r_text'})
+
+            return roll_regression(extract_code().fillna(0))
+
+        def concat_panel(save_name):
+            df_sent = self.get_sent_index().set_index('trade_date')
+            df_code_panel = pd.DataFrame()
+            for code in tqdm([i for i in self.get_index_members() if i in self.TABLE_LIST]):
+                try:
+                    df_code_panel = cal_by_code(code, df_sent).reset_index().sort_values(
+                        by=['trade_date'], ascending=True)
+                    self.save_sql(df_code_panel, save_name, if_exists='append')
+
+                except Exception as e:
+                    print(code, e)
+                    continue
+
+        def cal_by_index():
+            return cal_by_code('399300.SZ', self.get_sent_index().set_index('trade_date'),
+                               self.get_shibor().set_index('trade_date')[['1m']])
+
+        return cal_by_index()
+        # table_idvol = f'ASHARE_panel_O{self.OLS_WINDOW}_R{self.RS_WINDOW}_r'
+        # if table_idvol not in self.TABLE_LIST:
+        #     concat_panel(table_idvol)
 
     def cal_idvol(self, method: str = 'CAPM'):
         """
@@ -241,11 +301,50 @@ class FinDerCalulator(Base):
 
         cal_by_group(extract_data())
 
+
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
 #     DownLoader.load_index()
 #     DownLoader.load_index_members('399300.SZ')
 #     DownLoader.load_shibor()
 
-# with FinDerCalulator(5, 30, '399300.SZ') as Calulator:
-#     Calulator.cal_idvol('CAPM')
-#     Calulator.cal_high_low()
+with FinDerCalulator(5, 30, ) as Calulator:
+    # 计算滑动值
+    # 投资
+    import numpy as np
+
+
+    def cal_return(df, MA):
+        df.dropna(axis=0, inplace=True)
+        df[f'ma{MA}_t'] = (df['text_sent'].rolling(MA).mean())
+        df[f'ma{MA}_i'] = (df['img_sent'].rolling(MA).mean())
+
+        # 历史均值
+        df['is_ma_img'] = (df['img_sent'] >= df[f'ma{MA}_i'])
+        df['is_ma_text'] = (df['text_sent'] >= df[f'ma{MA}_t'])
+        df['is_ma_img'] = df['is_ma_img'].shift(1)
+        df['is_ma_text'] = df['is_ma_text'].shift(4)
+
+        df['return_img'] = np.where(df['is_ma_img'], -1 * (df['is_ma_img'] * df['pct_chg']), df['pct_chg'])
+        df['return_text'] = np.where(df['is_ma_text'], -1 * (df['is_ma_text'] * df['pct_chg']), df['pct_chg'])
+
+        # 换算
+        df.dropna(axis=0, inplace=True)
+
+        df['mv_csi300'] = (df['pct_chg'] + 100) / 100
+        df['mv_text'] = (df['return_text'] + 100) / 100
+        df['mv_img'] = (df['return_img'] + 100) / 100
+
+        df['mv_csi300'] = df['mv_csi300'].cumprod(axis=0)
+        df['mv_text'] = df['mv_text'].cumprod(axis=0)
+        df['mv_img'] = df['mv_img'].cumprod(axis=0)
+        df = df.rename(columns={'mv_img': f'mv_img_{MA}', 'mv_text': f'mv_text_{MA}'})
+
+        return df
+
+
+    df_in = Calulator.cal_sentiment_r()
+    for i in [5, 10, 15, 20, 25, 30]:
+        df_in = cal_return(df_in, i)
+
+    df_in = df_in[[i for i in df_in.columns if 'mv_' in i]]
+    df_in.to_csv('invest.csv')

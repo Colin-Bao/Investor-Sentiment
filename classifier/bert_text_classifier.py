@@ -26,7 +26,8 @@ class TextClassifier(ImgClassifier):
         def extract():
             df_extract = pd.read_sql(
                 f"SELECT id,title FROM {self.ARTICLE_TABLE} "
-                "WHERE mov=:mov AND title IS NOT NULL AND title_neg IS NULL LIMIT :limit_size ",
+                "WHERE title IS NOT NULL AND title_neg IS NULL "
+                "AND biz IN ('MjM5MzMwNjM0MA==','MjY2NzgwMjU0MA==','MjM5NzQ5MTkyMA==','MjM5NTE0ODc2Nw==') LIMIT :limit_size ",
                 con=self.ENGINE, params={'mov': 10, 'limit_size': self.HYPER_PARAS['BATCH_SIZE']}, )
             return df_extract
 

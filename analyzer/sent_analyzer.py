@@ -91,12 +91,13 @@ class SentCalculator(Base):
         :return:面板数据
         """
 
+        # 'a.mov=:mov AND'
         def extract():
             df_select = pd.read_sql(
-                f"SELECT a.t_date,gzhs.nickname,a.title,a.cover_local,a.cover_neg "
+                f"SELECT a.t_date,gzhs.nickname,a.title,a.cover_local,a.cover_neg,a.title_neg "
                 f"FROM gzhs LEFT JOIN {self.ARTICLE_TABLE} AS a ON gzhs.biz = a.biz "
                 "WHERE a.mov=:mov AND a.p_date BETWEEN :sd AND :ed "
-                "AND a.cover_neg IS NOT NULL AND a.t_date IS NOT NULL ",
+                "AND a.cover_neg IS NOT NULL AND a.title_neg IS NOT NULL AND a.t_date IS NOT NULL ",
                 con=self.ENGINE,
                 params={'mov': 10,
                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
@@ -133,7 +134,7 @@ class RegCalculator(Base):
     用于回归分析
     """
 
-    def __init__(self, WINSORIZE_LIMIT):
+    def __init__(self, WINSORIZE_LIMIT, SENT_TYPE):
         super(RegCalculator, self).__init__()
         # -----------------------------STATA配置-----------------------------------#
         from pystata import config
@@ -144,7 +145,8 @@ class RegCalculator(Base):
         self.STATA_API = stata
         # -----------------------------运行配置-----------------------------------#
         self.WINSORIZE_LIMIT = WINSORIZE_LIMIT
-        self.SENT_TYPE = ['img', 'text'][0]
+        self.SENT_TYPE = SENT_TYPE
+        self.NEG_COLUMN = {'img': 'cover_neg', 'text': 'title_neg'}[self.SENT_TYPE]  # 用于聚合计算的列
         self.SENTIMENT_TABLES = [i for i in self.TABLE_LIST if self.SENT_TYPE + '_sent' in i]  # 情绪指数
         self.SENTIMENT_VARIABLE = []  # 用于回归的变量列表X
         self.SHAREINDEX_VARIABLE = []  # 用于回归的变量列表Y
@@ -262,13 +264,13 @@ class RegCalculator(Base):
         def extract_analyst() -> pd.DataFrame:
             def extract():
                 df_extract = pd.read_sql(
-                f"SELECT INDEX_CODE,CON_DATE,cover_local FROM con_forecast_idx "
-                "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NULL",
-                con=self.ENGINE, params={'biz': biz,
-                                         'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
-                                         'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
-                                         'mov': 10},
-                parse_dates=["p_date"], )
+                    f"SELECT INDEX_CODE,CON_DATE,cover_local FROM con_forecast_idx "
+                    "WHERE biz=:biz AND mov=:mov AND p_date BETWEEN :sd AND :ed AND cover_local IS NULL",
+                    con=self.ENGINE, params={'biz': biz,
+                                             'sd': int(pd.to_datetime(self.START_DATE).timestamp()),
+                                             'ed': int(pd.to_datetime(self.END_DATE).timestamp()),
+                                             'mov': 10},
+                    parse_dates=["p_date"], )
                 return df_extract
 
             def transform(df_extract):
@@ -318,7 +320,7 @@ class RegCalculator(Base):
 
         def do_graph_combine(graph_list, x_sent_index, cfg):
             return f'graph combine {graph_list}, xcommon ycommon name({cfg}_{x_sent_index}, replace) scheme(sj)\n' \
-                   f'graph export imgs/{cfg}_{x_sent_index}.pdf ,replace \n'
+                   f'graph export imgs/{cfg}.pdf ,replace \n'
 
         def do_linear_reg_lag(y_share_index, x_sent_index, z_dummy_list, cfg):
             return f'reg {y_share_index} L(0/{lag}).{x_sent_index} L1.{y_share_index} {z_dummy_list} ,r'
@@ -330,7 +332,7 @@ class RegCalculator(Base):
         def do_save_var(y_share_index, x_sent_index):
             return f'outreg2 using /Users/mac/PycharmProjects/investor_sentiment/output/outreg/reg_{x_sent_index}.doc,' \
                    f'append tstat bdec(3) tdec(2) ' \
-                   f'ctitle({y_share_index}) addtext(Month FE, YES, Weekday FE, YES ,SUM(1-4),0, SUM(1-5),0) ' \
+                   f'ctitle({y_share_index}) addtext(Month FE, YES, Weekday FE, YES, SUM ,YES,SUM ,YES ) ' \
                    f'keep(L(1/5).{x_sent_index}) \n'
 
         def do_save_arbitrage(y_share_index, x_sent_index, group):
@@ -338,6 +340,9 @@ class RegCalculator(Base):
                    f'append tstat bdec(3) tdec(2) ' \
                    f'ctitle({y_share_index}) ' \
                    f'keep(L(1/5).{x_sent_index}) \n'
+
+        def do_export_date():
+            return f" export delimited using /Users/mac/Desktop/export_{self.SENT_TYPE}.csv, replace"
 
         def reg_by_group():
             """
@@ -352,14 +357,15 @@ class RegCalculator(Base):
 
             # 输出config
             def get_config() -> str:
-                gzh_num = max([int(i[9:10]) for i in self.SENTIMENT_VARIABLE])
+                gzh_num = 4
                 p_num = len(set([i[-2:] for i in self.SENTIMENT_VARIABLE]))
-                return f"{reg_type}_L{lag}_G{gzh_num}_P{p_num}"
+                return f"{self.SENT_TYPE}_{reg_type}_L{lag}_G{gzh_num}_P{p_num}"
 
             cfg = get_config()
 
             # 输出stata运行结果
             with open(f'output/{cfg}.log', 'w+') as f:
+                # print(f'output/{cfg}.log')
                 sys.stdout = f
 
                 # 设置时间序列
@@ -384,5 +390,8 @@ class RegCalculator(Base):
                     for VW in [M for M in A_LIST if 'mv' in M]:
                         self.__run_stata_do(do_var_arbitrage(VW, X, ' '.join(Z_LIST)))
                         self.__run_stata_do(do_save_arbitrage(VW, X, 'mv'))
+
+                    # 导出数据
+                    self.__run_stata_do(do_export_date())
 
         reg_by_group()
