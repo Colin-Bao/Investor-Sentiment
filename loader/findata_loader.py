@@ -111,12 +111,15 @@ class DownLoader(TuShare):
 
         # 每只股票的下载程序
         def append_code(code):
-            pd.read_sql_table(code, self.ENGINE, schema=from_db_name).set_index(['ts_code', 'trade_date']).to_sql(
-                panel_name,
-                self.ENGINE,
-                if_exists='append',
-                index=True,
-                schema=to_db_name)
+            try:
+                pd.read_sql_table(code, self.ENGINE, schema=from_db_name).set_index(['ts_code', 'trade_date']).to_sql(
+                    panel_name,
+                    self.ENGINE,
+                    if_exists='append',
+                    index=True,
+                    schema=to_db_name)
+            except Exception as e:
+                print(e)
 
         # 迭代合并
         def merge_multi():
