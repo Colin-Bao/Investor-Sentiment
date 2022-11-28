@@ -1,3 +1,6 @@
+# 改密码
+# use mysql;
+# ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '你的新密码';
 -- 1.create gzh table
 CREATE TABLE IF NOT EXISTS WECHAT_GZH.gzhs
 (

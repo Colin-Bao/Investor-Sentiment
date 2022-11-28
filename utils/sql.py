@@ -3,24 +3,30 @@ import pandas as pd
 
 class DB:
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         # -------------------------------数据库后端---------------------------------#
         from sqlalchemy import create_engine
         import sqlalchemy
         self.SQL_API = sqlalchemy
         self.ARTICLE_TABLE = 'articles_copy1'  # 引用的数据库
-        self.ENGINE = create_engine('sqlite:////Users/mac/PycharmProjects/wcplusPro7.31/db_folder/data-dev.db',
-                                    echo=False, connect_args={'check_same_thread': False})
+        self.ENGINE_DICT = {'MYSQL': 'mysql+mysqlconnector://root:1111@localhost:3306',
+                            'SQLLITE': 'sqlite:////Users/mac/PycharmProjects/wcplusPro7.31/db_folder/data-dev.db'}
+        self.ENGINE = create_engine(self.ENGINE_DICT[kwargs.get('ENGINE_TYPE', 'MYSQL')], echo=False, )
 
         # -------------------------------使用配置---------------------------------#
         self.START_DATE = '20140101'
         self.END_DATE = '20221231'
 
-    def save_sql(self, df_save: pd.DataFrame, name: str, if_exists='replace', schema=None) -> None: df_save.to_sql(name,
-                                                                                                                   self.ENGINE,
-                                                                                                                   index=False,
-                                                                                                                   schema=schema,
-                                                                                                                   if_exists=if_exists)
+    def init_database(self):
+        """
+        初始化数据库
+        :return:
+        """
+        with open('create_table.sql') as sql_script:
+            self.ENGINE.connect().execute(self.SQL_API.sql.text(sql_script.read()))
+
+    def save_sql(self, df_save: pd.DataFrame, name: str, if_exists='replace', schema=None) -> None:
+        df_save.to_sql(name, self.ENGINE, index=False, schema=schema, if_exists=if_exists)
 
     def __enter__(self): return self
 
@@ -32,8 +38,8 @@ class Base(DB):
     基础类\n
     """
 
-    def __init__(self):
-        super(Base, self).__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # -------------------------------使用配置---------------------------------#
         self.TABLE_LIST = self.__get_tables()['name'].to_list()  # 所有的表
         self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的绰号列表
@@ -83,3 +89,7 @@ class Base(DB):
 
     def get_sent_index(self):
         return pd.read_sql("SELECT trade_date,img_sent,text_sent FROM sent_index", self.ENGINE)
+
+
+if __name__ == '__main__':
+    DB(ENGINE_TYPE='MYSQL').init_database()
