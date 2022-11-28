@@ -19,6 +19,9 @@ class TuShare(DB):
 
 
 class DownLoader(TuShare):
+    """
+    多进程下载器
+    """
 
     def __init__(self, **kwargs):
         super(DownLoader, self).__init__(**kwargs)
