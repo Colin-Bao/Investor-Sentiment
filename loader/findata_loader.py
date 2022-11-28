@@ -194,17 +194,6 @@ class DownLoader(TuShare):
 
         load()
 
-    def load_shibor(self):
-        if 'shibor' in self.TABLE_LIST:
-            return
-        df_1 = self.PRO_API.shibor(start_date=self.START_DATE, end_date=str(int(self.START_DATE) + 30000))
-        df_2 = self.PRO_API.shibor(start_date=str(int(self.START_DATE) + 30000), end_date=self.END_DATE)
-        df = pd.concat([df_1, df_2], axis=0).rename(columns={'date': 'trade_date'}).sort_values('trade_date',
-                                                                                                ascending=False)
-        # print(df)
-
-        df.to_sql('')
-
     def del_fragment(self):
         """
         删除数据库碎片
