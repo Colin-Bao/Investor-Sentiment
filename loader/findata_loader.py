@@ -105,6 +105,31 @@ class DownLoader(TuShare):
     def load_all_code_base(self):
         pass
 
+        # 迭代合并
+
+    def start_multi_task(self, func, task_list: list):
+        """
+        多进程处理
+        """
+        #
+        self.pbar = tqdm(total=len(task_list))
+        # self.pbar.refresh()
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        # 回调
+        def progress_indicator(future):
+            with self.lock:  # obtain the lock
+                self.tasks_completed += 1
+                self.pbar.update(1)
+                # self.pbar.refresh()
+
+        #
+        with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
+            futures = [executor.submit(func, task) for task in tqdm(task_list)]
+            for future in futures:
+                future.add_done_callback(progress_indicator)
+
     def merge_panel_data(self, from_db_name, to_db_name, panel_name):
         # 追加模式,会重复
         if panel_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
@@ -142,7 +167,7 @@ class DownLoader(TuShare):
                 with self.lock:  # obtain the lock
                     self.tasks_completed += 1
                     self.pbar.update(1)
-                    # self.pbar.refresh()
+                    self.pbar.refresh()
 
             #
             with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
@@ -150,7 +175,12 @@ class DownLoader(TuShare):
                 for future in futures:
                     future.add_done_callback(progress_indicator)
 
+        # 联合主键
+        def add_pk():
+            self.ENGINE.execute(f"alter table {panel_name} add primary key(tscode,trade_date);")
+
         merge_multi()
+        add_pk()
 
     def load_index(self):
         def load_index_daily(index):
@@ -192,9 +222,25 @@ class DownLoader(TuShare):
 
         df.to_sql('')
 
+    def del_fragment(self):
+        """
+        删除数据库碎片
+        """
+        for schema in ['FIN_DAILY_TUSHARE']:  # 'FIN_DAILY_BASIC',
+            self.start_multi_task(lambda x: self.ENGINE.execute(f"OPTIMIZE TABLE  {schema}.`{x}` ;"),
+                                  pd.read_sql(f'SHOW TABLES FROM {schema}', self.ENGINE).iloc[:, 0].to_list())
+
 
 if __name__ == '__main__':
     # 加载所有股票K线的面板数据
     loader = DownLoader(MAX_CORE=8)
-    # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
-    loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
+    import time
+
+    st = time.time()
+    df = pd.read_sql_table('ASHARE_BASIC_PANEL', loader.ENGINE, 'FIN_PANEL_DATA',
+                           columns=['ts_code', 'trade_date', 'total_mv'])
+    print(df)
+    print(time.time() - st)
+    # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
+    # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
+    # loader.del_fragment()
