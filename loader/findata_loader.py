@@ -26,7 +26,7 @@ class DownLoader(TuShare):
         self.lock = Lock()
         self.tasks_total = 0
         self.tasks_completed = 0
-        self.pbar = tqdm()
+        self.pbar = None
         # 用于下载的线程数量
         self.MAX_CORE = kwargs.get('MAX_CORE', 4)
 
@@ -34,15 +34,14 @@ class DownLoader(TuShare):
         """
         多进程处理
         """
+        from concurrent.futures import ThreadPoolExecutor
         #
         self.tasks_total = len(task_list)
         self.tasks_completed = 0
         self.pbar = tqdm(total=len(task_list))
 
-        from concurrent.futures import ThreadPoolExecutor
-
         # 回调
-        def progress_indicator(future):
+        def progress_indicator(future_arg):
             with self.lock:  # obtain the lock
                 self.tasks_completed += 1
                 self.pbar.update(1)
@@ -66,41 +65,41 @@ class DownLoader(TuShare):
                          'ts_code': types.NVARCHAR(length=100)},
                   schema='FIN_BASIC')
 
-    def load_all_code_daily(self, daily_api, to_schema):
+    def load_all_code_daily(self, daily_api: str, to_schema):
         """
         下载所有的股票时间序列信息
         """
 
         # 获取股票列表
-        def get_code_list():
+        def get_code_list() -> list:
             # 已经下完的列表
             loaded_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
 
-            if daily_api == 'pro_bar_i':
-                code_list = ['399300.SZ']
-            else:
-                code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
-                    'ts_code'].to_list()
+            def api_code_list():
+                return {'pro_bar_i': ['399300.SZ']
+                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE,
+                                                           schema='FIN_BASIC',
+                                                           columns=['ts_code'])['ts_code'].to_list())
+
             # 去重
-            return [i for i in code_list if i not in loaded_code]
+            return [i for i in api_code_list() if i not in loaded_code]
 
         # 每只股票的下载程序
         def load_code(code):
+            def api_code_df() -> pd.DataFrame:
+                return {
+                    'pro_bar_e': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
+                    'pro_bar_i': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
+                    'daily_basic': self.PRO_API.daily_basic(ts_code=code)
+                }.get(daily_api).set_index('trade_date')
+
             try:
 
-                if daily_api == 'pro_bar_e':
-                    df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
-                elif daily_api == 'pro_bar_i':
-                    df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ).set_index('trade_date')
-                elif daily_api == 'daily_basic':
-                    df_code = self.PRO_API.daily_basic(ts_code=code).set_index('trade_date')
-                else:
-                    return
-
-                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema=to_schema,
-                               dtype={'trade_date': types.NVARCHAR(length=100),
-                                      'ts_code': types.NVARCHAR(length=100)},
-                               )
+                api_code_df().to_sql('stock_basic', self.ENGINE, index=True,
+                                     if_exists='fail',
+                                     dtype={'trade_date': types.NVARCHAR(length=100),
+                                            'ts_code': types.NVARCHAR(length=100)},
+                                     schema=to_schema)
 
             except Exception as e:
                 print(e)
@@ -212,13 +211,8 @@ class DownLoader(TuShare):
 if __name__ == '__main__':
     # 加载所有股票K线的面板数据
     loader = DownLoader(MAX_CORE=8)
-    import time
+    loader.load_all_code_daily('pro_bar_i', 'FIN_DAILY_INDEX')
 
-    st = time.time()
-    # 27秒
-    pd.read_sql_table('TEMP_MERGE_PANEL', loader.ENGINE, 'FIN_PANEL_DATA').to_parquet(
-        '/home/colin/Investor-Sentiment/PANEL_MERGE.parquet')
-    print(time.time() - st)
     # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
     # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
     # loader.del_fragment()
