@@ -20,19 +20,19 @@ class TuShare(DB):
 
 class DownLoader(TuShare):
 
-    def __init__(self, SHAREINDEX_LIST=()):
-
-        super(DownLoader, self).__init__()
-        self.SHAREINDEX_LIST = SHAREINDEX_LIST
+    def __init__(self, **kwargs):
+        super(DownLoader, self).__init__(**kwargs)
         from threading import Lock
         self.lock = Lock()
         self.tasks_total = 0
         self.tasks_completed = 0
-        self.pbar = None
+        self.pbar = tqdm()
+        # 用于下载的线程数量
+        self.MAX_CORE = kwargs.get('MAX_CORE', 4)
 
     def load_stock_basic(self):
         """
-        下载基本股票信息
+        下载基本所有股票信息表
         :return:
         """
         df = self.PRO_API.query('stock_basic', exchange='', list_status='L',
@@ -49,19 +49,26 @@ class DownLoader(TuShare):
         从stock_basic中下载所有的股票代码
         """
 
+        exist_code = pd.read_sql('SHOW TABLES FROM FIN_DAILY_TUSHARE', self.ENGINE).iloc[:, 0].to_list()
+
         # 获取股票列表
         def get_code_list():
+
             code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
                 'ts_code'].to_list()
             self.tasks_total = len(code_list)
             self.pbar = tqdm(range(self.tasks_total))
+            self.pbar.update(len(exist_code))
+            self.pbar.refresh()
             return code_list
 
         # 每只股票的下载程序
         def load_code(code):
             try:
+                if code in exist_code:
+                    return
                 df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
-                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema='FIN_DAILY_TUSHARE',
+                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema='FIN_KLINE_TUSHARE',
                                dtype={'trade_date': types.NVARCHAR(length=100),
                                       'ts_code': types.NVARCHAR(length=100)},
                                )
@@ -71,23 +78,66 @@ class DownLoader(TuShare):
 
         # 迭代下载
         def load_multi():
-
             from concurrent.futures import ThreadPoolExecutor
             # 回调
             def progress_indicator(future):
                 with self.lock:  # obtain the lock
                     self.tasks_completed += 1
-                    self.pbar.update(self.tasks_completed)
+                    self.pbar.update(1)
                     self.pbar.refresh()
                     # print(
                     #     f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
                 futures = [executor.submit(load_code, code) for code in get_code_list()]
                 for future in futures:
                     future.add_done_callback(progress_indicator)
 
         load_multi()
+
+    def merge_panel_data(self, from_db_name, to_db_name, panel_name):
+        # 追加模式,会重复
+        if panel_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
+            return
+
+        # 获取列表
+        def get_code_list() -> pd.DataFrame:
+            code_list = pd.read_sql(f'SHOW TABLES FROM {from_db_name}', self.ENGINE).iloc[:, 0].to_list()
+            self.tasks_total = len(code_list)
+            self.pbar = tqdm(range(self.tasks_total))
+            self.pbar.update(0)
+            self.pbar.refresh()
+            return code_list
+
+        # 每只股票的下载程序
+        def append_code(code):
+            pd.read_sql_table(code, self.ENGINE, schema=from_db_name).set_index(['ts_code', 'trade_date']).to_sql(
+                panel_name,
+                self.ENGINE,
+                if_exists='append',
+                index=True,
+                schema=to_db_name)
+
+        # 迭代合并
+        def merge_multi():
+
+            #
+            from concurrent.futures import ThreadPoolExecutor
+
+            # 回调
+            def progress_indicator(future):
+                with self.lock:  # obtain the lock
+                    self.tasks_completed += 1
+                    self.pbar.update(1)
+                    # self.pbar.refresh()
+
+            #
+            with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
+                futures = [executor.submit(append_code, code) for code in get_code_list()]
+                for future in futures:
+                    future.add_done_callback(progress_indicator)
+
+        merge_multi()
 
     def load_index(self):
         def load_index_daily(index):
@@ -134,5 +184,6 @@ if __name__ == '__main__':
     # pbar = tqdm(range(10))
     # pbar.update(2)
     # pbar.refresh()
-
-    DownLoader().load_all_code_daily()
+    loader = DownLoader(MAX_CORE=8)
+    # loader.load_all_code_daily()
+    loader.merge_panel_data('FIN_DAILY_TUSHARE', 'FIN_PANEL_DATA', 'ASHARE_DAILY_PANEL')
