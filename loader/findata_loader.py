@@ -237,9 +237,8 @@ if __name__ == '__main__':
     import time
 
     st = time.time()
-    df = pd.read_sql_table('ASHARE_BASIC_PANEL', loader.ENGINE, 'FIN_PANEL_DATA',
-                           columns=['ts_code', 'trade_date', 'total_mv'])
-    print(df)
+    # 27秒
+    pd.read_sql_table('TEMP_MERGE_PANEL', loader.ENGINE, 'FIN_PANEL_DATA').to_parquet('PANEL_MERGE.parquet')
     print(time.time() - st)
     # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
     # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')

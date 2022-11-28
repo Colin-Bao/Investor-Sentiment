@@ -6,7 +6,7 @@
       <paths name="root@122.9.41.123:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
