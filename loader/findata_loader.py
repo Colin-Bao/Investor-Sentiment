@@ -35,8 +35,9 @@ class DownLoader(TuShare):
         多进程处理
         """
         #
+        self.tasks_total = len(task_list)
+        self.tasks_completed = 0
         self.pbar = tqdm(total=len(task_list))
-        # self.pbar.refresh()
 
         from concurrent.futures import ThreadPoolExecutor
 
@@ -45,7 +46,6 @@ class DownLoader(TuShare):
             with self.lock:  # obtain the lock
                 self.tasks_completed += 1
                 self.pbar.update(1)
-                # self.pbar.refresh()
 
         #
         with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
@@ -66,41 +66,33 @@ class DownLoader(TuShare):
                          'ts_code': types.NVARCHAR(length=100)},
                   schema='FIN_BASIC')
 
-    def load_all_code_daily(self, daily_type, to_schema):
+    def load_all_code_daily(self, daily_api, to_schema):
         """
         下载所有的股票时间序列信息
         """
 
-        # 已经下完的列表
-        def get_loaded_code() -> list:
-            code_li = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
-            return code_li
-
-        loaded_code = get_loaded_code()
-
         # 获取股票列表
         def get_code_list():
+            # 已经下完的列表
+            loaded_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
 
-            code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
-                'ts_code'].to_list()
-
-            self.tasks_total = len(code_list)
-            self.pbar = tqdm(range(self.tasks_total))
-            self.pbar.update(len(loaded_code))
-            self.pbar.refresh()
-            return code_list
+            if daily_api == 'pro_bar_i':
+                code_list = ['399300.SZ']
+            else:
+                code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
+                    'ts_code'].to_list()
+            # 去重
+            return [i for i in code_list if i not in loaded_code]
 
         # 每只股票的下载程序
         def load_code(code):
             try:
-                if code in loaded_code:
-                    return
 
-                if daily_type == 'pro_bar_e':
+                if daily_api == 'pro_bar_e':
                     df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
-                elif daily_type == 'pro_bar_i':
+                elif daily_api == 'pro_bar_i':
                     df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ).set_index('trade_date')
-                elif daily_type == 'daily_basic':
+                elif daily_api == 'daily_basic':
                     df_code = self.PRO_API.daily_basic(ts_code=code).set_index('trade_date')
                 else:
                     return
