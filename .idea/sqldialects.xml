@@ -5,6 +5,8 @@
     <file url="file://$PROJECT_DIR$/classifier/cnn_img_classifier.py" dialect="SQLite" />
     <file url="file://$PROJECT_DIR$/loader/findata_loader.py" dialect="SQLite" />
     <file url="file://$PROJECT_DIR$/loader/img_loader.py" dialect="SQLite" />
+    <file url="file://$PROJECT_DIR$/utils/create_table.sql" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/utils/sql.py" dialect="SQLite" />
+    <file url="PROJECT" dialect="MySQL" />
   </component>
 </project>

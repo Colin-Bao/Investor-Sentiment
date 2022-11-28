@@ -21,15 +21,15 @@ def sent_analyzer():
     # with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
     #     # Calculator.map_trade_date()
     #     Calculator.cal_sentiment_index()
-    with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as imgCalculator:
-        imgCalculator.cal_sentiment_index()
-    with RegCalculator([0.01, 0.01], 'img') as imgRegCalculator:
-        imgRegCalculator.regression('VAR', 5)
+    # with SentCalculator('img', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as imgCalculator:
+    #     imgCalculator.cal_sentiment_index()
+    # with RegCalculator([0.01, 0.01], 'img') as imgRegCalculator:
+    #     imgRegCalculator.regression('VAR', 5)
     #
-    # with SentCalculator('text', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
-    #     Calculator.cal_sentiment_index()
-    # with RegCalculator([0.01, 0.01], 'text') as RegCalculator:
-    #     RegCalculator.regression('VAR', 5)
+    with SentCalculator('text', 0.55, ['中国证券报', '财新网', '央视财经', '界面新闻']) as Calculator:
+        Calculator.cal_sentiment_index()
+    with RegCalculator([0.01, 0.01], 'text') as RegCalculator:
+        RegCalculator.regression('VAR', 5)
 
 
 def img_classifier():

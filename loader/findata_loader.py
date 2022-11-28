@@ -97,6 +97,7 @@ class DownLoader(TuShare):
         df = pd.concat([df_1, df_2], axis=0).rename(columns={'date': 'trade_date'}).sort_values('trade_date',
                                                                                                 ascending=False)
         # print(df)
+
         self.save_sql(df, 'shibor')
 
 
@@ -301,50 +302,49 @@ class FinDerCalulator(Base):
 
         cal_by_group(extract_data())
 
-
 # with DownLoader(['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']) as DownLoader:
 #     DownLoader.load_index()
 #     DownLoader.load_index_members('399300.SZ')
 #     DownLoader.load_shibor()
-
-with FinDerCalulator(5, 30, ) as Calulator:
-    # 计算滑动值
-    # 投资
-    import numpy as np
-
-
-    def cal_return(df, MA):
-        df.dropna(axis=0, inplace=True)
-        df[f'ma{MA}_t'] = (df['text_sent'].rolling(MA).mean())
-        df[f'ma{MA}_i'] = (df['img_sent'].rolling(MA).mean())
-
-        # 历史均值
-        df['is_ma_img'] = (df['img_sent'] >= df[f'ma{MA}_i'])
-        df['is_ma_text'] = (df['text_sent'] >= df[f'ma{MA}_t'])
-        df['is_ma_img'] = df['is_ma_img'].shift(1)
-        df['is_ma_text'] = df['is_ma_text'].shift(4)
-
-        df['return_img'] = np.where(df['is_ma_img'], -1 * (df['is_ma_img'] * df['pct_chg']), df['pct_chg'])
-        df['return_text'] = np.where(df['is_ma_text'], -1 * (df['is_ma_text'] * df['pct_chg']), df['pct_chg'])
-
-        # 换算
-        df.dropna(axis=0, inplace=True)
-
-        df['mv_csi300'] = (df['pct_chg'] + 100) / 100
-        df['mv_text'] = (df['return_text'] + 100) / 100
-        df['mv_img'] = (df['return_img'] + 100) / 100
-
-        df['mv_csi300'] = df['mv_csi300'].cumprod(axis=0)
-        df['mv_text'] = df['mv_text'].cumprod(axis=0)
-        df['mv_img'] = df['mv_img'].cumprod(axis=0)
-        df = df.rename(columns={'mv_img': f'mv_img_{MA}', 'mv_text': f'mv_text_{MA}'})
-
-        return df
-
-
-    df_in = Calulator.cal_sentiment_r()
-    for i in [5, 10, 15, 20, 25, 30]:
-        df_in = cal_return(df_in, i)
-
-    df_in = df_in[[i for i in df_in.columns if 'mv_' in i]]
-    df_in.to_csv('invest.csv')
+#
+# with FinDerCalulator(5, 30, ) as Calulator:
+#     # 计算滑动值
+#     # 投资
+#     import numpy as np
+#
+#
+#     def cal_return(df, MA):
+#         df.dropna(axis=0, inplace=True)
+#         df[f'ma{MA}_t'] = (df['text_sent'].rolling(MA).mean())
+#         df[f'ma{MA}_i'] = (df['img_sent'].rolling(MA).mean())
+#
+#         # 历史均值
+#         df['is_ma_img'] = (df['img_sent'] >= df[f'ma{MA}_i'])
+#         df['is_ma_text'] = (df['text_sent'] >= df[f'ma{MA}_t'])
+#         df['is_ma_img'] = df['is_ma_img'].shift(1)
+#         df['is_ma_text'] = df['is_ma_text'].shift(4)
+#
+#         df['return_img'] = np.where(df['is_ma_img'], -1 * (df['is_ma_img'] * df['pct_chg']), df['pct_chg'])
+#         df['return_text'] = np.where(df['is_ma_text'], -1 * (df['is_ma_text'] * df['pct_chg']), df['pct_chg'])
+#
+#         # 换算
+#         df.dropna(axis=0, inplace=True)
+#
+#         df['mv_csi300'] = (df['pct_chg'] + 100) / 100
+#         df['mv_text'] = (df['return_text'] + 100) / 100
+#         df['mv_img'] = (df['return_img'] + 100) / 100
+#
+#         df['mv_csi300'] = df['mv_csi300'].cumprod(axis=0)
+#         df['mv_text'] = df['mv_text'].cumprod(axis=0)
+#         df['mv_img'] = df['mv_img'].cumprod(axis=0)
+#         df = df.rename(columns={'mv_img': f'mv_img_{MA}', 'mv_text': f'mv_text_{MA}'})
+#
+#         return df
+#
+#
+#     df_in = Calulator.cal_sentiment_r()
+#     for i in [5, 10, 15, 20, 25, 30]:
+#         df_in = cal_return(df_in, i)
+#
+#     df_in = df_in[[i for i in df_in.columns if 'mv_' in i]]
+#     df_in.to_csv('invest.csv')
