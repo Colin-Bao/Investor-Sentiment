@@ -28,6 +28,7 @@ class DownLoader(TuShare):
         self.lock = Lock()
         self.tasks_total = 0
         self.tasks_completed = 0
+        self.pbar = None
 
     def load_stock_basic(self):
         """
@@ -53,6 +54,7 @@ class DownLoader(TuShare):
             code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
                 'ts_code'].to_list()
             self.tasks_total = len(code_list)
+            self.pbar = tqdm(range(self.tasks_total))
             return code_list
 
         # 每只股票的下载程序
@@ -62,22 +64,25 @@ class DownLoader(TuShare):
                 df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema='FIN_DAILY_TUSHARE',
                                dtype={'trade_date': types.NVARCHAR(length=100),
                                       'ts_code': types.NVARCHAR(length=100)},
-                               method='multi')
+                               )
 
             except Exception as e:
                 print(e)
 
         # 迭代下载
         def load_multi():
+
             from concurrent.futures import ThreadPoolExecutor
             # 回调
             def progress_indicator(future):
                 with self.lock:  # obtain the lock
                     self.tasks_completed += 1
-                    print(
-                        f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
+                    self.pbar.update(self.tasks_completed)
+                    self.pbar.refresh()
+                    # print(
+                    #     f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
 
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(load_code, code) for code in get_code_list()]
                 for future in futures:
                     future.add_done_callback(progress_indicator)
@@ -126,4 +131,8 @@ class DownLoader(TuShare):
 
 
 if __name__ == '__main__':
+    # pbar = tqdm(range(10))
+    # pbar.update(2)
+    # pbar.refresh()
+
     DownLoader().load_all_code_daily()
