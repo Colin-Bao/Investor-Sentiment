@@ -44,12 +44,12 @@ class DownLoader(TuShare):
                          'ts_code': types.NVARCHAR(length=100)},
                   schema='FIN_BASIC')
 
-    def load_all_code_daily(self):
+    def load_all_code_daily(self, daily_type, to_schema):
         """
         从stock_basic中下载所有的股票代码
         """
 
-        exist_code = pd.read_sql('SHOW TABLES FROM FIN_DAILY_TUSHARE', self.ENGINE).iloc[:, 0].to_list()
+        exist_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
 
         # 获取股票列表
         def get_code_list():
@@ -67,8 +67,15 @@ class DownLoader(TuShare):
             try:
                 if code in exist_code:
                     return
-                df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
-                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema='FIN_KLINE_TUSHARE',
+
+                if daily_type == 'pro_bar':
+                    df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
+                elif daily_type == 'daily_basic':
+                    df_code = self.PRO_API.daily_basic(ts_code=code).set_index('trade_date')
+                else:
+                    return
+
+                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema=to_schema,
                                dtype={'trade_date': types.NVARCHAR(length=100),
                                       'ts_code': types.NVARCHAR(length=100)},
                                )
@@ -94,6 +101,9 @@ class DownLoader(TuShare):
                     future.add_done_callback(progress_indicator)
 
         load_multi()
+
+    def load_all_code_base(self):
+        pass
 
     def merge_panel_data(self, from_db_name, to_db_name, panel_name):
         # 追加模式,会重复
@@ -184,9 +194,7 @@ class DownLoader(TuShare):
 
 
 if __name__ == '__main__':
-    # pbar = tqdm(range(10))
-    # pbar.update(2)
-    # pbar.refresh()
+    # 加载所有股票K线的面板数据
     loader = DownLoader(MAX_CORE=8)
-    # loader.load_all_code_daily()
-    loader.merge_panel_data('FIN_DAILY_TUSHARE', 'FIN_PANEL_DATA', 'ASHARE_DAILY_PANEL')
+    # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
+    loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
