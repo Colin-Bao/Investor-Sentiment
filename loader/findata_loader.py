@@ -14,6 +14,7 @@ class TuShare(DB):
         self.__TOKEN = '56a12424870cd0953907cde2c660b498c8fe774145b7f17afdc746dd'
         import tushare as ts
         ts.set_token(self.__TOKEN)
+
         self.TS_API = ts
         self.PRO_API = ts.pro_api()
 
