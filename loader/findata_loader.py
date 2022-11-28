@@ -65,9 +65,9 @@ class DownLoader(TuShare):
                          'ts_code': types.NVARCHAR(length=100)},
                   schema='FIN_BASIC')
 
-    def load_all_code_daily(self, daily_api: str, to_schema):
+    def load_daily_data(self, daily_api: str, to_schema):
         """
-        下载所有的股票时间序列信息
+        下载所有的时间序列信息
         """
 
         # 获取股票列表
@@ -76,7 +76,7 @@ class DownLoader(TuShare):
             loaded_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
 
             def api_code_list():
-                return {'pro_bar_i': ['399300.SZ']
+                return {'pro_bar_i': ['399300.SZ'], 'shibor': ['SHIBOR']
                         }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE,
                                                            schema='FIN_BASIC',
                                                            columns=['ts_code'])['ts_code'].to_list())
@@ -90,12 +90,14 @@ class DownLoader(TuShare):
                 return {
                     'pro_bar_e': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
                     'pro_bar_i': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
-                    'daily_basic': self.PRO_API.daily_basic(ts_code=code)
-                }.get(daily_api).set_index('trade_date')
+                    'daily_basic': self.PRO_API.daily_basic(ts_code=code),
+                    'shibor': (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
+                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(
+                        columns={'date': 'trade_date'})),
+                }.get(daily_api).set_index('trade_date').sort_index(ascending=False)
 
             try:
-
-                api_code_df().to_sql('stock_basic', self.ENGINE, index=True,
+                api_code_df().to_sql(code, self.ENGINE, index=True,
                                      if_exists='fail',
                                      dtype={'trade_date': types.NVARCHAR(length=100),
                                             'ts_code': types.NVARCHAR(length=100)},
@@ -211,7 +213,8 @@ class DownLoader(TuShare):
 if __name__ == '__main__':
     # 加载所有股票K线的面板数据
     loader = DownLoader(MAX_CORE=8)
-    loader.load_all_code_daily('pro_bar_i', 'FIN_DAILY_INDEX')
+    # loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
+    loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
 
     # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
     # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
