@@ -26,8 +26,63 @@ class DownLoader(TuShare):
         self.SHAREINDEX_LIST = SHAREINDEX_LIST
         from threading import Lock
         self.lock = Lock()
-        # self.tasks_total = len(self.get_index_members())
+        self.tasks_total = 0
         self.tasks_completed = 0
+
+    def load_stock_basic(self):
+        """
+        下载基本股票信息
+        :return:
+        """
+        df = self.PRO_API.query('stock_basic', exchange='', list_status='L',
+                                fields='ts_code,symbol,name,area,industry,list_date').set_index('ts_code')
+        # df2 = pd.read_sql_table('gzhs', con=self.ENGINE, schema='WECHAT_GZH')
+        df.to_sql('stock_basic', self.ENGINE, index=True,
+                  if_exists='fail',
+                  dtype={'trade_date': types.NVARCHAR(length=100),
+                         'ts_code': types.NVARCHAR(length=100)},
+                  schema='FIN_BASIC')
+
+    def load_all_code_daily(self):
+        """
+        从stock_basic中下载所有的股票代码
+        """
+
+        # 获取股票列表
+        def get_code_list():
+            code_list = pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
+                'ts_code'].to_list()
+            self.tasks_total = len(code_list)
+            return code_list
+
+        # 每只股票的下载程序
+        def load_code(code):
+            try:
+                df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ).set_index('trade_date')
+                df_code.to_sql(code, self.ENGINE, if_exists='fail', index=True, schema='FIN_DAILY_TUSHARE',
+                               dtype={'trade_date': types.NVARCHAR(length=100),
+                                      'ts_code': types.NVARCHAR(length=100)},
+                               method='multi')
+
+            except Exception as e:
+                print(e)
+
+        # 迭代下载
+        def load_multi():
+            from concurrent.futures import ThreadPoolExecutor
+            # 回调
+            def progress_indicator(future):
+                with self.lock:  # obtain the lock
+                    self.tasks_completed += 1
+                    print(
+                        f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(load_code, code) for code in get_code_list()]
+                for future in futures:
+                    future.add_done_callback(progress_indicator)
+
+        load_multi()
 
     def load_index(self):
         def load_index_daily(index):
@@ -58,55 +113,6 @@ class DownLoader(TuShare):
 
         load()
 
-    def load_code(self, code):
-        if code not in self.TABLE_LIST:
-            try:
-                df_code = self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E',
-                                              start_date=self.START_DATE, end_date=self.END_DATE, )
-                self.save_sql(df_code, code)
-                # self.ENGINE.execute(f"CREATE INDEX ix_{code.replace('.', '')}_trade_date ON '{code}' (trade_date)")
-            except Exception as e:
-                print(e)
-
-    def load_index_members(self, ):
-
-        from concurrent.futures import ThreadPoolExecutor
-
-        def progress_indicator(future):
-            # obtain the lock
-            with self.lock:
-                # update the counter
-                self.tasks_completed += 1
-                # report progress
-                print(
-                    f'{self.tasks_completed}/{self.tasks_total} completed, {self.tasks_total - self.tasks_completed} remain.')
-
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(self.load_code, table) for table in self.get_index_members()]
-            for future in futures:
-                future.add_done_callback(progress_indicator)
-            # for code in tqdm(self.get_index_members()):
-            #     try:
-            #         self.load_code(code)
-            #     except Exception as e:
-            #         print(e, '\n')
-            #         continue
-
-    def load_stock_basic(self):
-        """
-        下载基本股票信息
-        :return:
-        """
-        df = self.PRO_API.query('stock_basic', exchange='', list_status='L',
-                                fields='ts_code,symbol,name,area,industry,list_date').set_index('ts_code')
-        # df2 = pd.read_sql_table('gzhs', con=self.ENGINE, schema='WECHAT_GZH')
-        # print(df2)
-        df.to_sql('stock_basic', self.ENGINE, index=True,
-                  if_exists='append',
-                  dtype={'trade_date': types.NVARCHAR(length=100),
-                         'ts_code': types.NVARCHAR(length=100)},
-                  schema='FIN_BASIC')
-
     def load_shibor(self):
         if 'shibor' in self.TABLE_LIST:
             return
@@ -119,5 +125,5 @@ class DownLoader(TuShare):
         df.to_sql('')
 
 
-DownLoader().load_stock_basic()
-# print(DownLoader())
+if __name__ == '__main__':
+    DownLoader().load_all_code_daily()
