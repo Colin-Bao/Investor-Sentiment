@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@122.9.41.123:22 password" confirmBeforeUploading="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" serverName="root@122.9.41.123:22 password" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false">
+    <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
       <paths name="root@122.9.41.123:22 password">
@@ -11,6 +12,5 @@
         </serverdata>
       </paths>
     </serverData>
-    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

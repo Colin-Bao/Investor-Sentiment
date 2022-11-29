@@ -1,3 +1,5 @@
+import time
+
 from utils.sql import DB
 import pandas as pd
 from sqlalchemy import types
@@ -26,8 +28,7 @@ class DownLoader(TuShare):
 
     def __init__(self, **kwargs):
         super(DownLoader, self).__init__(**kwargs)
-        from threading import Lock
-        self.lock = Lock()
+        self.lock = None
         self.tasks_total = 0
         self.tasks_completed = 0
         self.pbar = None
@@ -39,7 +40,9 @@ class DownLoader(TuShare):
         多进程处理
         """
         from concurrent.futures import ThreadPoolExecutor
+        from threading import Lock
         #
+        self.lock = Lock()
         self.tasks_total = len(task_list)
         self.tasks_completed = 0
         self.pbar = tqdm(total=len(task_list))
@@ -114,56 +117,48 @@ class DownLoader(TuShare):
         self.start_multi_task(load_code, get_code_list())
 
     def merge_panel_data(self, from_db_name, to_db_name, panel_name):
+        """
+        合并面板数据
+        """
         # 追加模式,会重复
         if panel_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
             return
 
         # 获取列表
-        def get_code_list() -> pd.DataFrame:
-            code_list = pd.read_sql(f'SHOW TABLES FROM {from_db_name}', self.ENGINE).iloc[:, 0].to_list()
-            self.tasks_total = len(code_list)
-            self.pbar = tqdm(range(self.tasks_total))
-            self.pbar.update(0)
-            self.pbar.refresh()
-            return code_list
+        def get_code_list() -> list:
+            return pd.read_sql(f'SHOW TABLES FROM {from_db_name}', self.ENGINE).iloc[:, 0].to_list()
 
         # 每只股票的下载程序
         def append_code(code):
             try:
                 pd.read_sql_table(code, self.ENGINE, schema=from_db_name).set_index(['ts_code', 'trade_date']).to_sql(
-                    panel_name,
-                    self.ENGINE,
-                    if_exists='append',
-                    index=True,
-                    schema=to_db_name)
+                    panel_name, self.ENGINE, if_exists='append', index=True, schema=to_db_name)
             except Exception as e:
                 print(e)
-
-        # 迭代合并
-        def merge_multi():
-
-            #
-            from concurrent.futures import ThreadPoolExecutor
-
-            # 回调
-            def progress_indicator(future):
-                with self.lock:  # obtain the lock
-                    self.tasks_completed += 1
-                    self.pbar.update(1)
-                    self.pbar.refresh()
-
-            #
-            with ThreadPoolExecutor(max_workers=self.MAX_CORE) as executor:
-                futures = [executor.submit(append_code, code) for code in get_code_list()]
-                for future in futures:
-                    future.add_done_callback(progress_indicator)
 
         # 联合主键
         def add_pk():
             self.ENGINE.execute(f"alter table {panel_name} add primary key(tscode,trade_date);")
 
-        merge_multi()
+        # 迭代合并
+        self.start_multi_task(append_code, get_code_list())
+
         add_pk()
+
+    def transform_parquet(self, from_db_name, table_name, columns: list):
+        """
+        转换数据库为parquet文件方便计算
+        """
+        # .astype(dtype={'ts_code': 'category', 'trade_date': 'category'})
+        st = time.time()
+        df = (pd.read_sql_table(table_name, self.ENGINE, schema=from_db_name, columns=columns)
+              )
+        print(df)
+        print(time.time() - st)
+        # df.to_feather(f'/home/colin/Investor-Sentiment/DataSets/{table_name}.feather')
+        # print(time.time() - st)
+        # pd.read_sql_table(table_name, self.ENGINE, schema=from_db_name, columns=columns).to_parquet(
+        #     f'{table_name}.parquet')
 
     def load_index(self):
         def load_index_daily(index):
@@ -206,8 +201,10 @@ class DownLoader(TuShare):
 if __name__ == '__main__':
     # 加载所有股票K线的面板数据
     loader = DownLoader(MAX_CORE=8)
+    loader.transform_parquet('COLIN_PANEL', 'TEMP_PANEL_FINAL', ['ts_code', 'trade_date', 'total_mv',
+                                                                 ])
     # loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
-    loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
+    # loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
 
     # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
     # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
