@@ -10,7 +10,7 @@ conda config --set auto_activate_base true
 
 # 安装Stata
 cd /tmp/ && mkdir statafiles && cd statafiles
-tar -zxf /home/Downloads/Stata17Linux64.tar.gz
+tar -zxf /data/Downloads/Stata17Linux64.tar.gz
 cd /usr/local && mkdir stata17 && cd stata17
 /tmp/statafiles/install
 
@@ -19,6 +19,7 @@ conda install -c rmg glibc
 apt install libncurses5
 
 # 激活并运行
+#501709301094!$n1dp$aca97zqi8vi0k3n6p8it3dnw29eef82ri!snic!Colin's Stata!!-2285!
 ./stinit
 cd /usr/local/stata17
 ./stata
@@ -34,9 +35,13 @@ conda clean -a
 
 # 创建虚拟环境
 conda create -n Investor-Sentiment python=3.9
+sudo chmod a+w .conda
+
+
+
 conda activate Investor-Sentiment
-conda install -c conda-forge jupyterhub  # installs jupyterhub and proxy
-conda install -c conda-forge jupyterlab notebook
+conda install -c conda-forge jupyterhub  jupyterlab notebook numpy pandas sqlalchemy mysql-connector-python 
+
 # conda install jupyterlab notebook  # needed if running the notebook servers in the same environment
 
 jupyterhub --generate-config
