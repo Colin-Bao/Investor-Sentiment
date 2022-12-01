@@ -59,6 +59,7 @@ ll -a /root/anaconda3/envs
 # 将目前目录下的所有档案与子目录皆设为任何人可读取
 chmod a+r+x -R /root
 chmod a+r+w+x -R /root/anaconda3/envs
+chmod a+r+w+x -R /usr/local/miniconda3/envs
 # 文件夹和子文件夹
 
 cd /root/anaconda3/envs/Investor-Sentiment
@@ -75,13 +76,12 @@ jupyter server --generate-config
 conda activate Investor-Sentiment
 conda install -c conda-forge jupyterlab-language-pack-zh-CN
 conda install -c conda-forge nodejs
-conda install -c conda-forge jupyterlab_execute_time
-
+conda install -c conda-forge jupyterlab_execute_time jupyter-resource-usage
 # 1.labextension
 # jupyter labextension install
 conda install -c conda-forge nbresuse
 # 全局拓展
-conda install -c conda-forge jupyter-resource-usage
+conda install -c conda-forge
 jupyter labextension list
 jupyter nbextension list
 # c.Spawner.mem_limit = 4*1024*1024*1024
@@ -91,3 +91,4 @@ jupyterlab-topbar-extension
 moniter
 jupyter lab --ResourceUseDisplay.track_cpu_percent=True
 # 要把配置文件放到每个用户下面
+c.Completer.use_jedi = False

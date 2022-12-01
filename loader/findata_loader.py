@@ -6,6 +6,8 @@ from sqlalchemy import types
 from tqdm import tqdm
 
 
+# /usr/local/miniconda3/envs
+
 class TuShare(DB):
     """
     Tusahre接口
@@ -35,6 +37,9 @@ class DownLoader(TuShare):
         # 用于下载的线程数量
         self.MAX_CORE = kwargs.get('MAX_CORE', 4)
 
+    def create_schema(self, schema_name: str):
+        self.ENGINE.execute(f"CREATE DATABASE IF NOT EXISTS {schema_name} DEFAULT CHARACTER SET = 'utf8mb4' ")
+
     def start_multi_task(self, func, task_list: list):
         """
         多进程处理
@@ -59,34 +64,38 @@ class DownLoader(TuShare):
             for future in futures:
                 future.add_done_callback(progress_indicator)
 
-    def load_stock_basic(self):
+    def load_stock_basic(self, db_name='FIN_BASIC'):
         """
         下载基本所有股票信息表
         :return:
         """
         df = self.PRO_API.query('stock_basic', exchange='', list_status='L',
                                 fields='ts_code,symbol,name,area,industry,list_date').set_index('ts_code')
-        df.to_sql('stock_basic', self.ENGINE, index=True,
-                  if_exists='fail',
-                  dtype={'trade_date': types.NVARCHAR(length=100),
-                         'ts_code': types.NVARCHAR(length=100)},
-                  schema='FIN_BASIC')
 
-    def load_daily_data(self, daily_api: str, to_schema):
+        # 先找数据库
+        self.create_schema(db_name)
+
+        df.to_sql('stock_basic', self.ENGINE, index=True, if_exists='replace',
+                  dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100), 'name': types.NVARCHAR(length=100)},
+                  schema=db_name)
+
+    def load_daily_data(self, daily_api: str, to_schema: str):
         """
         下载所有的时间序列信息
         """
 
         # 获取股票列表
         def get_code_list() -> list:
+            # 先找数据库
+            _ = self.load_stock_basic() if 'FIN_BASIC' not in pd.read_sql('SHOW DATABASES', self.ENGINE).iloc[:, 0].to_list() else None
+
             # 已经下完的列表
+            self.create_schema(to_schema)
             loaded_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
 
             def api_code_list():
                 return {'pro_bar_i': ['399300.SZ'], 'shibor': ['SHIBOR']
-                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE,
-                                                           schema='FIN_BASIC',
-                                                           columns=['ts_code'])['ts_code'].to_list())
+                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code'].to_list())
 
             # 去重
             return [i for i in api_code_list() if i not in loaded_code]
@@ -180,14 +189,14 @@ class DownLoader(TuShare):
                 i += 1
             self.save_sql(df_weight_con.sort_values('trade_date', ascending=False), index + '_weight')
 
-        def load():
-            for idx in self.SHAREINDEX_LIST:
-                if idx + '_weight' in self.TABLE_LIST:
-                    continue
-                load_index_daily(idx)
-                load_index_weight(idx)
-
-        load()
+        # def load():
+        #     for idx in self.SHAREINDEX_LIST:
+        #         if idx + '_weight' in self.TABLE_LIST:
+        #             continue
+        #         load_index_daily(idx)
+        #         load_index_weight(idx)
+        #
+        # load()
 
     def del_fragment(self):
         """
@@ -200,9 +209,10 @@ class DownLoader(TuShare):
 
 if __name__ == '__main__':
     # 加载所有股票K线的面板数据
-    loader = DownLoader(MAX_CORE=8)
-    loader.transform_parquet('COLIN_PANEL', 'TEMP_PANEL_FINAL', ['ts_code', 'trade_date', 'total_mv',
-                                                                 ])
+    loader = DownLoader(MAX_CORE=10)
+    # loader.load_stock_basic()
+    # loader.transform_parquet('COLIN_PANEL', 'TEMP_PANEL_FINAL', ['ts_code', 'trade_date', 'total_mv', ])
+    loader.load_daily_data('pro_bar_e', 'FIN_DAILY_BAR')
     # loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
     # loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
 

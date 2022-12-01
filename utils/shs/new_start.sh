@@ -13,10 +13,17 @@ conda install -c rapidsai -c conda-forge -c nvidia  \
 
 #卸载旧的环境
 conda env remove -n jupyterhub_env
+#卸载旧的环境
+conda env remove -n Stata
+
+conda install -c conda-forge pandas numpy tqdm sqlalchemy
+conda install -c anaconda mysql-connector-python
+conda install -c conda-forge pandarallel
 conda env list
 conda activate  Investor-Sentiment
 conda install -c conda-forge cupy
-conda create -n test_temp -c conda-forge python=3.9
+conda create -n jupyterhub_env -c conda-forge python=3.9
+conda create -n Stata -c conda-forge python=3.9
 conda activate  Investor-Sentiment
 
 # 配置新的虚拟环境
@@ -28,7 +35,7 @@ conda install mamba -c conda-forge
 conda  install nodejs  -c conda-forge
 conda install -c conda-forge jupyterhub
 conda install -c conda-forge jupyterlab notebook
-conda  install jupyterhub jupyterlab notebook ipykernel ipython -c conda-forge
+conda  install  ipykernel ipython -c conda-forge
 #
 conda  install   ipykernel ipython -c conda-forge
 #安装太慢
