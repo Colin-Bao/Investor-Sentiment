@@ -216,12 +216,11 @@ class DownLoader(TuShare):
         # 转为本地文件
         def transform_parquet():
             import os
-            if not os.path.exists('../DataSets/ASHARE_BAR_PANEL.parquet'):
-                (pd.read_sql_table('ASHARE_BAR_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
-                 .to_parquet('../DataSets/ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
-            if not os.path.exists('../DataSets/ASHARE_BASIC_PANEL.parquet'):
-                (pd.read_sql_table('ASHARE_BASIC_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
-                 .to_parquet('../DataSets/ASHARE_BASIC_PANEL.parquet', engine='pyarrow', index=True))
+            panel_list = ['ASHARE_BAR_PANEL', 'ASHARE_BASIC_PANEL']
+            for panel_table in panel_list:
+                if not os.path.exists(f'./DataSets/{panel_table}.parquet'):
+                    (pd.read_sql_table(panel_table, self.ENGINE, 'FIN_PANEL_DATA')
+                     .to_parquet(f'./DataSets/{panel_table}.parquet', engine='pyarrow', index=False))
 
         load_daily_data()
         merge_panel_data()
