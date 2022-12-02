@@ -6,8 +6,6 @@ from sqlalchemy import types
 from tqdm import tqdm
 
 
-# /usr/local/miniconda3/envs
-
 class TuShare(DB):
     """
     Tusahre接口
@@ -36,9 +34,6 @@ class DownLoader(TuShare):
         self.pbar = None
         # 用于下载的线程数量
         self.MAX_CORE = kwargs.get('MAX_CORE', 4)
-
-    def create_schema(self, schema_name: str):
-        self.ENGINE.execute(f"CREATE DATABASE IF NOT EXISTS {schema_name} DEFAULT CHARACTER SET = 'utf8mb4' ")
 
     def start_multi_task(self, func, task_list: list):
         """
@@ -75,9 +70,8 @@ class DownLoader(TuShare):
         # 先找数据库
         self.create_schema(db_name)
 
-        df.to_sql('stock_basic', self.ENGINE, index=True, if_exists='replace',
-                  dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100), 'name': types.NVARCHAR(length=100)},
-                  schema=db_name)
+        df.to_sql('stock_basic', self.ENGINE, index=True, if_exists='replace', schema=db_name,
+                  dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100), 'name': types.NVARCHAR(length=100)})
 
     def load_daily_data(self, daily_api: str, to_schema: str):
         """
@@ -108,16 +102,12 @@ class DownLoader(TuShare):
                     'pro_bar_i': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
                     'daily_basic': self.PRO_API.daily_basic(ts_code=code),
                     'shibor': (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
-                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(
-                        columns={'date': 'trade_date'})),
+                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(columns={'date': 'trade_date'})),
                 }.get(daily_api).set_index('trade_date').sort_index(ascending=False)
 
             try:
-                api_code_df().to_sql(code, self.ENGINE, index=True,
-                                     if_exists='fail',
-                                     dtype={'trade_date': types.NVARCHAR(length=100),
-                                            'ts_code': types.NVARCHAR(length=100)},
-                                     schema=to_schema)
+                api_code_df().to_sql(code, self.ENGINE, index=True, schema=to_schema, if_exists='fail',
+                                     dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)})
 
             except Exception as e:
                 print(e)
@@ -147,7 +137,7 @@ class DownLoader(TuShare):
 
         # 联合主键
         def add_pk():
-            self.ENGINE.execute(f"alter table {panel_name} add primary key(tscode,trade_date);")
+            self.ENGINE.execute(f"ALTER table {panel_name} ADD PRIMARY KEY (tscode,trade_date);")
 
         # 迭代合并
         self.start_multi_task(append_code, get_code_list())
@@ -213,9 +203,10 @@ if __name__ == '__main__':
     # loader.load_stock_basic()
     # loader.transform_parquet('COLIN_PANEL', 'TEMP_PANEL_FINAL', ['ts_code', 'trade_date', 'total_mv', ])
     loader.load_daily_data('pro_bar_e', 'FIN_DAILY_BAR')
-    # loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
-    # loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
+    loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
+    loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
 
-    # loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
-    # loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
-    # loader.del_fragment()
+# from loader import findata_loader
+# loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
+# loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
+# loader.del_fragment()

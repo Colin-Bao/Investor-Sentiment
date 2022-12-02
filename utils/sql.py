@@ -28,6 +28,9 @@ class DB:
     def save_sql(self, df_save: pd.DataFrame, name: str, if_exists='replace', schema=None) -> None:
         df_save.to_sql(name, self.ENGINE, index=False, schema=schema, if_exists=if_exists)
 
+    def create_schema(self, schema_name: str):
+        self.ENGINE.execute(f"CREATE DATABASE IF NOT EXISTS {schema_name} DEFAULT CHARACTER SET = 'utf8mb4' ")
+
     def __enter__(self): return self
 
     def __exit__(self, exc_type, exc_val, exc_tb): self.ENGINE.dispose()
