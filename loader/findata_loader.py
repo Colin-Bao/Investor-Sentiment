@@ -121,6 +121,9 @@ class DownLoader(TuShare):
         """
         合并面板数据
         """
+        # 建数据库
+        self.create_schema(to_schema)
+
         # 追加模式,会重复
         if panel_table in self.get_tables(to_schema):
             return
@@ -128,7 +131,7 @@ class DownLoader(TuShare):
         # 主键和索引
         def alter_table():
             sql = f"""
-            ALTER table {to_schema}.{panel_table} ADD PRIMARY KEY (tscode,trade_date);
+            ALTER table {to_schema}.{panel_table} ADD PRIMARY KEY (ts_code,trade_date);
             CREATE INDEX ix_trade_date on {to_schema}.{panel_table} (`trade_date`);
             CREATE INDEX ix_ts_code on {to_schema}.{panel_table} (`ts_code`);
             """
@@ -143,9 +146,6 @@ class DownLoader(TuShare):
                          dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}))
             except Exception as e:
                 print(e)
-
-        # 建数据库
-        self.create_schema(to_schema)
 
         # 迭代合并
         self.start_multi_task(append_time_series, self.get_tables(from_schema))
@@ -188,15 +188,6 @@ class DownLoader(TuShare):
                 i += 1
             self.save_sql(df_weight_con.sort_values('trade_date', ascending=False), index + '_weight')
 
-        # def load():
-        #     for idx in self.SHAREINDEX_LIST:
-        #         if idx + '_weight' in self.TABLE_LIST:
-        #             continue
-        #         load_index_daily(idx)
-        #         load_index_weight(idx)
-        #
-        # load()
-
     def del_fragment(self):
         """
         删除数据库碎片
@@ -205,17 +196,33 @@ class DownLoader(TuShare):
             self.start_multi_task(lambda x: self.ENGINE.execute(f"OPTIMIZE TABLE  {schema}.`{x}` ;"),
                                   pd.read_sql(f'SHOW TABLES FROM {schema}', self.ENGINE).iloc[:, 0].to_list())
 
+    def load_data(self):
+        """
+        加载时间序列数据和合并为面板数据
+        """
 
-if __name__ == '__main__':
-    # 加载所有股票K线的面板数据
-    loader = DownLoader(MAX_CORE=10)
-    # loader.load_stock_basic()
-    # loader.transform_parquet('COLIN_PANEL', 'TEMP_PANEL_FINAL', ['ts_code', 'trade_date', 'total_mv', ])
-    loader.load_daily_data('pro_bar_e', 'FIN_DAILY_BAR')
-    loader.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
-    loader.load_daily_data('shibor', 'FIN_DAILY_INDEX')
+        # 下载时间序列数据
+        def load_daily_data():
+            self.load_daily_data('pro_bar_e', 'FIN_DAILY_BAR')
+            self.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
+            self.load_daily_data('daily_basic', 'FIN_DAILY_BASIC')
+            self.load_daily_data('shibor', 'FIN_DAILY_INDEX')
 
-# from loader import findata_loader
-# loader.load_index()  # loader.load_all_code_daily('daily_basic', 'FIN_DAILY_BASIC')
-# loader.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
-# loader.del_fragment()
+        # 转换面板数据
+        def merge_panel_data():
+            self.merge_panel_data('FIN_DAILY_BAR', 'FIN_PANEL_DATA', 'ASHARE_BAR_PANEL')
+            self.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
+
+        # 转为本地文件
+        def transform_parquet():
+            import os
+            if not os.path.exists('../DataSets/ASHARE_BAR_PANEL.parquet'):
+                (pd.read_sql_table('ASHARE_BAR_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
+                 .to_parquet('ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
+            if not os.path.exists('../DataSets/ASHARE_BASIC_PANEL.parquet'):
+                (pd.read_sql_table('ASHARE_BASIC_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
+                 .to_parquet('ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
+
+        load_daily_data()
+        merge_panel_data()
+        transform_parquet()
