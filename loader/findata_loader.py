@@ -115,34 +115,37 @@ class DownLoader(TuShare):
         # 迭代下载
         self.start_multi_task(load_code, get_code_list())
 
-    def merge_panel_data(self, from_db_name, to_db_name, panel_name):
+    def merge_panel_data(self, from_db_name, to_db_name, panel_table_name):
         """
         合并面板数据
         """
         # 追加模式,会重复
-        if panel_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
+        if panel_table_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
             return
 
         # 获取列表
         def get_code_list() -> list:
             return pd.read_sql(f'SHOW TABLES FROM {from_db_name}', self.ENGINE).iloc[:, 0].to_list()
 
-        # 每只股票的下载程序
+        # 把每只股票的时间序列数据添加到面板数据
         def append_code(code):
             try:
-                pd.read_sql_table(code, self.ENGINE, schema=from_db_name).set_index(['ts_code', 'trade_date']).to_sql(
-                    panel_name, self.ENGINE, if_exists='append', index=True, schema=to_db_name)
+                (pd.read_sql_table(code, self.ENGINE, schema=from_db_name)
+                 .to_sql(panel_table_name, self.ENGINE, if_exists='append', index=False, schema=to_db_name,
+                         dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}))
             except Exception as e:
                 print(e)
 
         # 联合主键
         def add_pk():
-            self.ENGINE.execute(f"ALTER table {panel_name} ADD PRIMARY KEY (tscode,trade_date);")
+            self.ENGINE.execute(f"ALTER table {panel_table_name} ADD PRIMARY KEY (tscode,trade_date);")
+
+        # 建数据库
+        self.create_schema(to_db_name)
+        add_pk()
 
         # 迭代合并
         self.start_multi_task(append_code, get_code_list())
-
-        add_pk()
 
     def transform_parquet(self, from_db_name, table_name, columns: list):
         """
