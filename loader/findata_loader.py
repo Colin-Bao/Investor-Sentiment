@@ -218,10 +218,10 @@ class DownLoader(TuShare):
             import os
             if not os.path.exists('../DataSets/ASHARE_BAR_PANEL.parquet'):
                 (pd.read_sql_table('ASHARE_BAR_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
-                 .to_parquet('ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
+                 .to_parquet('../DataSets/ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
             if not os.path.exists('../DataSets/ASHARE_BASIC_PANEL.parquet'):
                 (pd.read_sql_table('ASHARE_BASIC_PANEL', self.ENGINE, 'FIN_PANEL_DATA', index_col=['trade_date', 'ts_code'])
-                 .to_parquet('ASHARE_BAR_PANEL.parquet', engine='pyarrow', index=True))
+                 .to_parquet('../DataSets/ASHARE_BASIC_PANEL.parquet', engine='pyarrow', index=True))
 
         load_daily_data()
         merge_panel_data()

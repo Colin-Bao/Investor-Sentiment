@@ -11,6 +11,7 @@
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
+            <excludedPath path="/Investor-Sentiment/DataSets" />
           </excludedPaths>
         </serverdata>
       </paths>
