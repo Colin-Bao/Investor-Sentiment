@@ -34,6 +34,8 @@ class DownLoader(TuShare):
         self.pbar = None
         # 用于下载的线程数量
         self.MAX_CORE = kwargs.get('MAX_CORE', 4)
+        # 已经存储的信息
+        self.SCHEMA_LIST = self.get_schemas()
 
     def start_multi_task(self, func, task_list: list):
         """
@@ -81,11 +83,11 @@ class DownLoader(TuShare):
         # 获取股票列表
         def get_code_list() -> list:
             # 先找数据库
-            _ = self.load_stock_basic() if 'FIN_BASIC' not in pd.read_sql('SHOW DATABASES', self.ENGINE).iloc[:, 0].to_list() else None
+            _ = self.load_stock_basic() if 'FIN_BASIC' not in self.SCHEMA_LIST else None
 
             # 已经下完的列表
             self.create_schema(to_schema)
-            loaded_code = pd.read_sql(f'SHOW TABLES FROM {to_schema}', self.ENGINE).iloc[:, 0].to_list()
+            loaded_code = self.get_tables(to_schema)
 
             def api_code_list():
                 return {'pro_bar_i': ['399300.SZ'], 'shibor': ['SHIBOR']
@@ -115,37 +117,41 @@ class DownLoader(TuShare):
         # 迭代下载
         self.start_multi_task(load_code, get_code_list())
 
-    def merge_panel_data(self, from_db_name, to_db_name, panel_table_name):
+    def merge_panel_data(self, from_schema, to_schema, panel_table):
         """
         合并面板数据
         """
         # 追加模式,会重复
-        if panel_table_name in pd.read_sql(f'SHOW TABLES FROM {to_db_name}', self.ENGINE).iloc[:, 0].to_list():
+        if panel_table in self.get_tables(to_schema):
             return
 
-        # 获取列表
-        def get_code_list() -> list:
-            return pd.read_sql(f'SHOW TABLES FROM {from_db_name}', self.ENGINE).iloc[:, 0].to_list()
+        # 主键和索引
+        def alter_table():
+            sql = f"""
+            ALTER table {to_schema}.{panel_table} ADD PRIMARY KEY (tscode,trade_date);
+            CREATE INDEX ix_trade_date on {to_schema}.{panel_table} (`trade_date`);
+            CREATE INDEX ix_ts_code on {to_schema}.{panel_table} (`ts_code`);
+            """
+            self.ENGINE.execute(sql)
 
-        # 把每只股票的时间序列数据添加到面板数据
-        def append_code(code):
+        # 把时间序列数据添加到面板数据
+        def append_time_series(code):
             try:
-                (pd.read_sql_table(code, self.ENGINE, schema=from_db_name)
-                 .to_sql(panel_table_name, self.ENGINE, if_exists='append', index=False, schema=to_db_name,
+                # 合并
+                (pd.read_sql_table(code, self.ENGINE, schema=from_schema)
+                 .to_sql(panel_table, self.ENGINE, if_exists='append', index=False, schema=to_schema,
                          dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}))
             except Exception as e:
                 print(e)
 
-        # 联合主键
-        def add_pk():
-            self.ENGINE.execute(f"ALTER table {panel_table_name} ADD PRIMARY KEY (tscode,trade_date);")
-
         # 建数据库
-        self.create_schema(to_db_name)
-        add_pk()
+        self.create_schema(to_schema)
 
         # 迭代合并
-        self.start_multi_task(append_code, get_code_list())
+        self.start_multi_task(append_time_series, self.get_tables(from_schema))
+
+        # 加主键
+        alter_table()
 
     def transform_parquet(self, from_db_name, table_name, columns: list):
         """

@@ -25,6 +25,10 @@ class DB:
         with open('create_table.sql') as sql_script:
             self.ENGINE.connect().execute(self.SQL_API.sql.text(sql_script.read()))
 
+    def get_schemas(self) -> list: return pd.read_sql('SHOW DATABASES', self.ENGINE).iloc[:, 0].to_list()
+
+    def get_tables(self, schema_name) -> list: return pd.read_sql(f'SHOW TABLES FROM {schema_name}', self.ENGINE).iloc[:, 0].to_list()
+
     def save_sql(self, df_save: pd.DataFrame, name: str, if_exists='replace', schema=None) -> None:
         df_save.to_sql(name, self.ENGINE, index=False, schema=schema, if_exists=if_exists)
 
