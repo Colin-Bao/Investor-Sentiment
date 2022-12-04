@@ -15,24 +15,6 @@
           </excludedPaths>
         </serverdata>
       </paths>
-      <paths name="root@1.116.108.184:22 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
-            <excludedPath local="true" path="$PROJECT_DIR$/output" />
-          </excludedPaths>
-        </serverdata>
-      </paths>
-      <paths name="root@122.9.41.123:22 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
     </serverData>
     <option name="myAutoUpload" value="ALWAYS" />
   </component>
