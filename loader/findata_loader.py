@@ -73,7 +73,8 @@ class DownLoader(TuShare):
         self.create_schema(db_name)
 
         df.to_sql('stock_basic', self.ENGINE, index=True, if_exists='replace', schema=db_name,
-                  dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100), 'name': types.NVARCHAR(length=100)})
+                  dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100),
+                         'name': types.NVARCHAR(length=100)})
 
     def load_daily_data(self, daily_api: str, to_schema: str):
         """
@@ -91,7 +92,8 @@ class DownLoader(TuShare):
 
             def api_code_list():
                 return {'pro_bar_i': ['399300.SZ'], 'shibor': ['SHIBOR']
-                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code'].to_list())
+                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
+                    'ts_code'].to_list())
 
             # 去重
             return [i for i in api_code_list() if i not in loaded_code]
@@ -104,7 +106,8 @@ class DownLoader(TuShare):
                     'pro_bar_i': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
                     'daily_basic': self.PRO_API.daily_basic(ts_code=code),
                     'shibor': (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
-                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(columns={'date': 'trade_date'})),
+                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(
+                        columns={'date': 'trade_date'})),
                 }.get(daily_api).set_index('trade_date').sort_index(ascending=False)
 
             try:
