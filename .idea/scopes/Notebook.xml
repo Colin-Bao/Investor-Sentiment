@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Notebook" pattern="file[investor_sentiment]:analyzer/*.ipynb" />
+</component>
