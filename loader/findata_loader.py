@@ -33,7 +33,7 @@ class DownLoader(TuShare):
         self.tasks_completed = 0
         self.pbar = None
         # 用于下载的线程数量
-        self.MAX_CORE = kwargs.get('MAX_CORE', 4)
+        self.MAX_CORE = kwargs.get('MAX_CORE', 10)
         # 已经存储的信息
         self.SCHEMA_LIST = self.get_schemas()
 
@@ -74,7 +74,7 @@ class DownLoader(TuShare):
 
         df.to_sql('stock_basic', self.ENGINE, index=True, if_exists='replace', schema=db_name,
                   dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100),
-                         'name': types.NVARCHAR(length=100)})
+                         'name'      : types.NVARCHAR(length=100)})
 
     def load_daily_data(self, daily_api: str, to_schema: str):
         """
@@ -90,10 +90,14 @@ class DownLoader(TuShare):
             self.create_schema(to_schema)
             loaded_code = self.get_tables(to_schema)
 
+            # 返回不同API的待查询表名
             def api_code_list():
-                return {'pro_bar_i': ['399300.SZ'], 'shibor': ['SHIBOR']
-                        }.get(daily_api, pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])[
-                    'ts_code'].to_list())
+                return {
+                        'shibor'   : ['SHIBOR'],
+                        'pro_bar_i': ['399300.SZ'],
+                        'pro_bar_e': (pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
+                                      .to_list())
+                }.get(daily_api)
 
             # 去重
             return [i for i in api_code_list() if i not in loaded_code]
@@ -102,15 +106,16 @@ class DownLoader(TuShare):
         def load_code(code):
             def api_code_df() -> pd.DataFrame:
                 return {
-                    'pro_bar_e': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
-                    'pro_bar_i': self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
-                    'daily_basic': self.PRO_API.daily_basic(ts_code=code),
-                    'shibor': (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
-                                          self.PRO_API.shibor(start_date='20220102', end_date='20221231')]).rename(
-                        columns={'date': 'trade_date'})),
+                        'pro_bar_e'  : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
+                        'pro_bar_i'  : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
+                        'daily_basic': self.PRO_API.daily_basic(ts_code=code),
+                        'shibor'     : (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
+                                                   self.PRO_API.shibor(start_date='20220102', end_date='20221231')])
+                                        .rename(columns={'date': 'trade_date'})),
                 }.get(daily_api).set_index('trade_date').sort_index(ascending=False)
 
             try:
+                # noinspection all
                 api_code_df().to_sql(code, self.ENGINE, index=True, schema=to_schema, if_exists='fail',
                                      dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)})
 
@@ -133,6 +138,7 @@ class DownLoader(TuShare):
 
         # 主键和索引
         def alter_table():
+            # noinspection all
             sql = f"""
             ALTER table {to_schema}.{panel_table} ADD PRIMARY KEY (ts_code,trade_date);
             CREATE INDEX ix_trade_date on {to_schema}.{panel_table} (`trade_date`);
@@ -144,6 +150,7 @@ class DownLoader(TuShare):
         def append_time_series(code):
             try:
                 # 合并
+                # noinspection all
                 (pd.read_sql_table(code, self.ENGINE, schema=from_schema)
                  .to_sql(panel_table, self.ENGINE, if_exists='append', index=False, schema=to_schema,
                          dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}))
@@ -155,21 +162,6 @@ class DownLoader(TuShare):
 
         # 加主键
         alter_table()
-
-    def transform_parquet(self, from_db_name, table_name, columns: list):
-        """
-        转换数据库为parquet文件方便计算
-        """
-        # .astype(dtype={'ts_code': 'category', 'trade_date': 'category'})
-        st = time.time()
-        df = (pd.read_sql_table(table_name, self.ENGINE, schema=from_db_name, columns=columns)
-              )
-        print(df)
-        print(time.time() - st)
-        # df.to_feather(f'/home/colin/Investor-Sentiment/DataSets/{table_name}.feather')
-        # print(time.time() - st)
-        # pd.read_sql_table(table_name, self.ENGINE, schema=from_db_name, columns=columns).to_parquet(
-        #     f'{table_name}.parquet')
 
     def load_index(self):
         def load_index_daily(index):
