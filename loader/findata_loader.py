@@ -117,7 +117,7 @@ class DownLoader(TuShare):
             try:
                 # noinspection all
                 api_code_df().to_sql(code, self.ENGINE, index=True, schema=to_schema, if_exists='fail',
-                                     dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)})
+                                     dtype={'trade_date': types.NVARCHAR(length=50), 'ts_code': types.NVARCHAR(length=50)})
 
             except Exception as e:
                 print(e)
@@ -153,7 +153,8 @@ class DownLoader(TuShare):
                 # noinspection all
                 (pd.read_sql_table(code, self.ENGINE, schema=from_schema)
                  .to_sql(panel_table, self.ENGINE, if_exists='append', index=False, schema=to_schema,
-                         dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}))
+                         dtype={'trade_date': types.NVARCHAR(length=100), 'ts_code': types.NVARCHAR(length=100)}
+                         ))
             except Exception as e:
                 print(e)
 
