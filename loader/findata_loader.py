@@ -93,10 +93,17 @@ class DownLoader(TuShare):
             # 返回不同API的待查询表名
             def api_code_list():
                 return {
-                        'shibor'   : ['SHIBOR'],
-                        'pro_bar_i': ['399300.SZ'],
-                        'pro_bar_e': (pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
-                                      .to_list())
+                        'shibor'          : ['SHIBOR'],
+                        'pro_bar_i'       : ['399300.SZ', '000300.SH', '000001.SH', '399001.SZ', '000016.SH', '000905.SH'],
+                        'pro_bar_e'       : (
+                                pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
+                                .to_list()
+                        ),
+                        'daily_basic'     : (
+                                pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
+                                .to_list()
+                        ),
+                        'index_dailybasic': ['399300.SZ', '000300.SH', '000001.SH', '399001.SZ', '000016.SH', '000905.SH']
                 }.get(daily_api)
 
             # 去重
@@ -106,12 +113,13 @@ class DownLoader(TuShare):
         def load_code(code):
             def api_code_df() -> pd.DataFrame:
                 return {
-                        'pro_bar_e'  : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
-                        'pro_bar_i'  : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
-                        'daily_basic': self.PRO_API.daily_basic(ts_code=code),
-                        'shibor'     : (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
-                                                   self.PRO_API.shibor(start_date='20220102', end_date='20221231')])
-                                        .rename(columns={'date': 'trade_date'})),
+                        'pro_bar_e'       : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='E', ),
+                        'pro_bar_i'       : self.TS_API.pro_bar(ts_code=code, adj='qfq', asset='I', ),
+                        'daily_basic'     : self.PRO_API.daily_basic(ts_code=code),
+                        'index_dailybasic': self.PRO_API.index_dailybasic(ts_code=code),
+                        'shibor'          : (pd.concat([self.PRO_API.shibor(start_date='20140101', end_date='20220101'),
+                                                        self.PRO_API.shibor(start_date='20220102', end_date='20221231')])
+                                             .rename(columns={'date': 'trade_date'})),
                 }.get(daily_api).set_index('trade_date').sort_index(ascending=False)
 
             try:
@@ -199,30 +207,42 @@ class DownLoader(TuShare):
 
         # 下载时间序列数据
         def load_daily_data():
+            # A股K线数据
             self.load_daily_data('pro_bar_e', 'FIN_DAILY_BAR')
+            # A股基本面数据
             self.load_daily_data('pro_bar_i', 'FIN_DAILY_INDEX')
+            # 指数K线数据
             self.load_daily_data('daily_basic', 'FIN_DAILY_BASIC')
-            self.load_daily_data('shibor', 'FIN_DAILY_INDEX')
+            # 指数基本面数据
+            self.load_daily_data('index_dailybasic', 'FIN_DAILY_INDEX_BASIC')
+            # 宏观数据
+            self.load_daily_data('shibor', 'FIN_DAILY_MACRO')
 
         # 转换面板数据
         def merge_panel_data():
+            # A股K线数据
             self.merge_panel_data('FIN_DAILY_BAR', 'FIN_PANEL_DATA', 'ASHARE_BAR_PANEL')
+            # A股基本面数据
             self.merge_panel_data('FIN_DAILY_BASIC', 'FIN_PANEL_DATA', 'ASHARE_BASIC_PANEL')
+            # 指数K线数据
+            self.merge_panel_data('FIN_DAILY_INDEX', 'FIN_PANEL_DATA', 'IDX_BAR_PANEL')
+            # 指数基本面数据
+            self.merge_panel_data('FIN_DAILY_INDEX_BASIC', 'FIN_PANEL_DATA', 'IDX_BASIC_PANEL')
 
         # 转为本地文件
         def transform_parquet():
             """
-            把文件压缩好
+            把文件压缩好 ['ASHARE_BAR_PANEL', 'ASHARE_BASIC_PANEL']
             :return:
             """
             import os
-            panel_list = ['ASHARE_BAR_PANEL', 'ASHARE_BASIC_PANEL']
+            panel_list = ['ASHARE_BAR_PANEL', 'ASHARE_BASIC_PANEL', 'IDX_BAR_PANEL', 'IDX_BASIC_PANEL']
             for panel_table in panel_list:
-                if not os.path.exists(f'./DataSets/{panel_table}.parquet'):
+                if not os.path.exists(f'/data/DataSets/investor_sentiment/{panel_table}.parquet'):
                     (pd.read_sql_table(panel_table, self.ENGINE, 'FIN_PANEL_DATA')
                      .astype(dtype={'ts_code': 'category', 'trade_date': 'uint32', })
                      .set_index(['trade_date', 'ts_code'])
-                     .to_parquet(f'./DataSets/{panel_table}.parquet', engine='pyarrow', index=True))
+                     .to_parquet(f'/data/DataSets/investor_sentiment/{panel_table}.parquet', engine='pyarrow', index=True))
 
         load_daily_data()
         merge_panel_data()
