@@ -94,7 +94,9 @@ class DownLoader(TuShare):
             def api_code_list():
                 return {
                         'shibor'          : ['SHIBOR'],
-                        'pro_bar_i'       : ['399300.SZ', '000300.SH', '000001.SH', '399001.SZ', '000016.SH', '000905.SH'],
+                        'pro_bar_i'       : ['000001.SH', '000010.SH', '000015.SH', '000016.SH', '000300.SH', '000903.SH',
+                                             '000905.SH', '000906.SH', '000985.SH', '399001.SZ', '399005.SZ', '399006.SZ',
+                                             '399300.SZ', '399310.SZ', ],
                         'pro_bar_e'       : (
                                 pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
                                 .to_list()
@@ -103,7 +105,9 @@ class DownLoader(TuShare):
                                 pd.read_sql_table('stock_basic', self.ENGINE, schema='FIN_BASIC', columns=['ts_code'])['ts_code']
                                 .to_list()
                         ),
-                        'index_dailybasic': ['399300.SZ', '000300.SH', '000001.SH', '399001.SZ', '000016.SH', '000905.SH']
+                        'index_dailybasic': ['000001.SH', '000010.SH', '000015.SH', '000016.SH', '000300.SH', '000903.SH',
+                                             '000905.SH', '000906.SH', '000985.SH', '399001.SZ', '399005.SZ', '399006.SZ',
+                                             '399300.SZ', '399310.SZ', ]
                 }.get(daily_api)
 
             # 去重
