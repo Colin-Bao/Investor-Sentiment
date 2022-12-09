@@ -1,7 +1,7 @@
-import time
-
 from utils.sql import DB
 import pandas as pd
+import numpy as np
+import cudf
 from sqlalchemy import types
 from tqdm import tqdm
 
@@ -251,3 +251,130 @@ class DownLoader(TuShare):
         load_daily_data()
         merge_panel_data()
         transform_parquet()
+
+
+class Loader(TuShare):
+    """
+    加载数据
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.DATASETS_PATH = '/data/DataSets/investor_sentiment/'
+
+    def get_conidx_panel(self) -> cudf.DataFrame:
+        """
+        返回指数一致预期面板数据
+        :return: 面板数据
+        """
+        df = cudf.read_parquet(self.DATASETS_PATH + 'CON_FORECAST_IDX.parquet')
+        # 筛选研究样本
+        df['CON_DATE'] = df['CON_DATE'].dt.strftime('%Y%m%d')
+
+        # 格式处理
+        df = df.astype(dtype={'CON_DATE': 'uint32', 'CON_YEAR': 'uint32'})
+
+        # 筛选样本期 短期预期 选择指数样本
+        df = df[(df['CON_DATE'] >= 20131231) & ((df['CON_DATE'] // 10000) == df['CON_YEAR'])
+                & ((df['INDEX_CODE'].str[:1] == '0') | (df['INDEX_CODE'].str[:1] == '3'))]
+
+        # 改列名
+        df['INDEX_CODE'] = (np.where(df['INDEX_CODE'].to_pandas().str[:1] == '0',
+                                     df['INDEX_CODE'].to_pandas() + '.SH',
+                                     df['INDEX_CODE'].to_pandas() + '.SZ'))
+
+        # 方便合并
+        df = df.rename(columns={'CON_DATE': 'trade_date', 'INDEX_CODE': 'ts_code'}).set_index(['trade_date', 'ts_code'])
+
+        # 删掉不要的
+        return df.drop(columns=['index', 'ID', 'ENTRYTIME', 'ENTRYTIME', 'UPDATETIME', 'TMSTAMP', 'INDEX_NAME'])
+
+    def get_ashare_panel(self) -> cudf.DataFrame:
+        """
+        返回A股面板数据 需要基本面的其他指标增加columns即可
+        :return:
+        """
+        df = (
+                cudf.concat(
+                        [
+                                # A股K线数据
+                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BAR_PANEL.parquet',
+                                                  columns=['trade_date', 'ts_code', 'pct_chg'])
+                                .rename(columns={'pct_chg': 'share_return'}),
+                                # A股基本面数据
+                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BASIC_PANEL.parquet',
+                                                  columns=['trade_date', 'ts_code', 'total_mv'])
+                        ],
+                        join="left", axis=1, sort=True
+                ).query('trade_date>=20140101')
+
+        )
+        return df
+
+    def get_index_panel(self) -> cudf.DataFrame:
+        """
+        返回指数面板数据 需要基本面的其他指标增加columns即可
+        :return:
+        """
+        df = (
+                cudf.concat(
+                        [
+                                # 指数K线数据
+                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BAR_PANEL.parquet', columns=['trade_date', 'ts_code', 'pct_chg'])
+                                .rename(columns={'pct_chg': 'shareindex_return'}),
+                                # 指数基本面数据
+                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BASIC_PANEL.parquet',
+                                                  columns=['trade_date', 'ts_code', 'total_mv', 'total_share', 'pe', 'pe_ttm']),
+                        ],
+                        join="left", axis=1, sort=True
+                ).query('trade_date>=20140101')
+
+        )
+        return df
+
+    def get_time_series(self) -> cudf.DataFrame:
+        """
+        返回情绪,无风险收益
+        :return:时间序列数据
+        """
+        df = (cudf.concat(
+                [
+                        # 情绪数据
+                        cudf.from_pandas(
+                                pd.concat(
+                                        [pd.read_sql_table('IMG_SENT', self.ENGINE, 'SENT_DAILY').astype(dtype={'trade_date': 'uint32'})
+                                         .set_index('trade_date').rename(columns={'neg_index': 'img_neg'}),
+
+                                         pd.read_sql_table('TEX_SENT', self.ENGINE, 'SENT_DAILY').astype(dtype={'trade_date': 'uint32'})
+                                         .set_index('trade_date').rename(columns={'neg_index': 'tex_neg'})
+                                         ], axis=1
+                                )),
+                        # SHIBOR数据
+                        cudf.from_pandas((pd.read_sql_table('SHIBOR', self.ENGINE, 'FIN_DAILY_MACRO', columns=['trade_date', '3m'])
+                                          .astype(dtype={'trade_date': 'uint32'}).set_index('trade_date')
+                                          .rename(columns={'3m': 'riskfree_return'}) / 360))
+                ],
+                axis=1, sort=True))
+
+        return df
+
+    def get_cross_panel_reg(self):
+        """
+        截面效应分析,返回用于计算异质波动率的数据
+        :return:
+        """
+        df_panel = (
+                cudf.merge(
+                        # 增加用于回归的无风险利率
+                        cudf.merge(
+                                self.get_ashare_panel(), self.get_time_series()[['riskfree_return']],
+                                on='trade_date', how='left', sort=True
+                        ),
+                        # 增加用于回归的市场指数
+                        cudf.from_pandas(
+                                self.get_index_panel()[['shareindex_return']].to_pandas().query("ts_code == '000300.SH'")
+                                .reset_index('ts_code', drop=True)
+                        ),
+                        on='trade_date', how='left', sort=True).to_pandas()
+        )
+        return df_panel
