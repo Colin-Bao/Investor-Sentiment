@@ -298,14 +298,12 @@ class Loader(TuShare):
                 cudf.concat(
                         [
                                 # A股K线数据
-                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BAR_PANEL.parquet',
-                                                  columns=['trade_date', 'ts_code', 'pct_chg'])
+                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BAR_PANEL.parquet', )
                                 .rename(columns={'pct_chg': 'share_return'}),
                                 # A股基本面数据
-                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BASIC_PANEL.parquet',
-                                                  columns=['trade_date', 'ts_code', 'total_mv'])
+                                cudf.read_parquet(f'{self.DATASETS_PATH}ASHARE_BASIC_PANEL.parquet', ).drop(columns=['close'])
                         ],
-                        join="left", axis=1, sort=True
+                        join="outer", axis=1, sort=True
                 ).query('trade_date>=20140101')
 
         )
@@ -320,13 +318,12 @@ class Loader(TuShare):
                 cudf.concat(
                         [
                                 # 指数K线数据
-                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BAR_PANEL.parquet', columns=['trade_date', 'ts_code', 'pct_chg'])
+                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BAR_PANEL.parquet', )
                                 .rename(columns={'pct_chg': 'shareindex_return'}),
                                 # 指数基本面数据
-                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BASIC_PANEL.parquet',
-                                                  columns=['trade_date', 'ts_code', 'total_mv', 'total_share', 'pe', 'pe_ttm']),
+                                cudf.read_parquet(f'{self.DATASETS_PATH}IDX_BASIC_PANEL.parquet', ),
                         ],
-                        join="left", axis=1, sort=True
+                        join="outer", axis=1, sort=True
                 ).query('trade_date>=20140101')
 
         )
