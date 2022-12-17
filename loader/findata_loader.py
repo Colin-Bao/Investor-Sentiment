@@ -339,10 +339,10 @@ class Loader(TuShare):
                         # 情绪数据
                         cudf.from_pandas(
                                 pd.concat(
-                                        [pd.read_sql_table('IMG_SENT', self.ENGINE, 'SENT_DAILY').astype(dtype={'trade_date': 'uint32'})
+                                        [pd.read_sql_table('IMG_SENT', self.ENGINE, 'SENT_DATA').astype(dtype={'trade_date': 'uint32'})
                                          .set_index('trade_date').rename(columns={'neg_index': 'img_neg'}),
 
-                                         pd.read_sql_table('TEX_SENT', self.ENGINE, 'SENT_DAILY').astype(dtype={'trade_date': 'uint32'})
+                                         pd.read_sql_table('TEX_SENT', self.ENGINE, 'SENT_DATA').astype(dtype={'trade_date': 'uint32'})
                                          .set_index('trade_date').rename(columns={'neg_index': 'tex_neg'})
                                          ], axis=1
                                 )),
