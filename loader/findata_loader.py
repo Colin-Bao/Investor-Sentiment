@@ -375,3 +375,49 @@ class Loader(TuShare):
                         on='trade_date', how='left', sort=True).to_pandas()
         )
         return df_panel
+
+    def transform_forum_data(self):  # noqa
+        """
+        处理从经管之家下载的excel数据为一个大的Parquet
+        :return:
+        """
+
+        import os
+        file_path = '/home/ubuntu/notebook/DataSets/FORUM_SENT/'
+
+        def excel_transform():
+            """
+            转换excel
+            :return:
+            """
+
+            import multiprocessing as mp
+
+            pool = mp.Pool(10)
+
+            # 任务函数
+            def myfunc(name):
+                df = pd.read_excel(file_path + name, header=0, engine='openpyxl', skiprows=[1, 2],
+                                   dtype={'Stockcode': 'str', 'PostDate': 'str'})
+                out_name = file_path + name[:-5] + '.parquet'
+                df.to_parquet(out_name)
+                return {name: out_name}
+
+            results = [pool.apply_async(myfunc, args=(name,)) for name in os.listdir(file_path) if '.xlsx' in name]
+            results = [p.get() for p in results]
+            return results
+
+        def merge_parquet():
+            df_merge = pd.DataFrame()
+            for i in os.listdir(file_path):
+                if '.parquet' in i:
+                    df_merge = pd.concat([df_merge, pd.read_parquet(file_path + i)])
+            df_merge.to_parquet('/data/DataSets/investor_sentiment/FORUM_SENT.parquet')
+
+        def trans_code(x):
+            if x[0] == '6' or x[0] == '9': return x + '.SH'
+            elif x[0] == '0' or x[0] == '2' or x[0] == '3': return x + '.SZ'
+            elif x[0] == '4' or x[0] == '8': return x + '.BJ'
+            else: return x
+
+        merge_parquet()
