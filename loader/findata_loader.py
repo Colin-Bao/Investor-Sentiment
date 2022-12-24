@@ -331,7 +331,7 @@ class Loader(TuShare):
 
     def get_time_series(self) -> cudf.DataFrame:
         """
-        返回情绪,无风险收益
+        返回情绪+无风险收益
         :return:时间序列数据
         """
         df = (cudf.concat(
@@ -421,3 +421,42 @@ class Loader(TuShare):
             else: return x
 
         merge_parquet()
+
+    def extract_pdate_mediasent(self) -> cudf.DataFrame:
+        """
+        提取推文中的情绪,自然日期
+        :return: 按照自然日期返回 cudf 'p_date', 'img_neg', 'tex_neg'
+        """
+        # 提取
+        pd.options.mode.chained_assignment = None  # 忽略警告
+        df_select = pd.read_sql(
+                "SELECT id,p_date, title_neg, cover_neg, biz FROM WECAHT_DATA.articles_tag "
+                "WHERE mov=10 AND biz in ('MjM5MzMwNjM0MA==','MjM5NzQ5MTkyMA==','MjY2NzgwMjU0MA==','MjY2NzgwMjU0MA==')",
+                con=self.ENGINE,
+                parse_dates=["p_date"])
+
+        # 筛选
+        df_select['p_date'] = df_select['p_date'].dt.strftime('%Y%m%d').astype('uint32')
+        df_select = df_select.query("p_date>=20140101")
+
+        # 阈值处理
+        df_select['title_flag'] = df_select['title_neg'].apply(lambda x: 1 if x > 0.5 else 0)
+        df_select['cover_flag'] = df_select['cover_neg'].apply(lambda x: 1 if x > 0.5 else 0)
+
+        # 每日情绪
+        df_select['day_article'] = df_select.groupby('p_date')['id'].transform('count')
+
+        df_select['tex_neg'] = df_select['title_flag'] / df_select['day_article']
+        df_select['img_neg'] = df_select['cover_flag'] / df_select['day_article']
+
+        # 时间序列
+        df_select = df_select.groupby(['p_date', ], as_index=False).first()
+        # 筛选
+        return cudf.from_pandas(df_select[['p_date', 'img_neg', 'tex_neg']]).set_index('p_date').sort_index().reset_index()
+
+    def extract_tdate_mediasent(self) -> cudf.DataFrame:
+        """
+        按照交易日返回媒体情绪
+        :return:按照交易日期返回 cudf 'p_date', 'img_neg', 'tex_neg'
+        """
+        return self.get_time_series()[['img_neg', 'tex_neg', ]].sort_index().reset_index().dropna(axis=0)
