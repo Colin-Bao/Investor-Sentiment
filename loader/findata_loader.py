@@ -460,3 +460,4 @@ class Loader(TuShare):
         :return:按照交易日期返回 cudf 'p_date', 'img_neg', 'tex_neg'
         """
         return self.get_time_series()[['img_neg', 'tex_neg', ]].sort_index().reset_index().dropna(axis=0)
+
