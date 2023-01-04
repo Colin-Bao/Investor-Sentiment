@@ -44,7 +44,6 @@ class DownLoader(Base):
         for chunk in pd.read_sql('SELECT cover,biz,id FROM NEW_WECHAT_DATA.articles WHERE cover_local IS NULL', self.ENGINE,
                                  chunksize=10000):
             # 多线程下载器
-            
             # 开始任务
             MultiExecutor().start_multi_task(down_task, list(zip(chunk['cover'].to_list(), chunk['biz'].to_list(), chunk['id'].to_list())))
 
