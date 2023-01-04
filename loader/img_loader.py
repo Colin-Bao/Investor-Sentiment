@@ -4,12 +4,12 @@ from utils.sql import Base
 
 class DownLoader(Base):
     """
-    下载器
+    下载器,下载图片到本地
     """
 
     def __init__(self):
         super(DownLoader, self).__init__()
-        self.IMG_PATH_ROOT = f'/Users/mac/Downloads/load_img/'  # 文件存储的路径
+        self.IMG_PATH_ROOT = '/data/DataSets/WC_IMGS/'  # 文件存储的路径
 
     def load_cover_by_gzh(self, biz: str):
         """

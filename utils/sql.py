@@ -48,16 +48,19 @@ class Base(DB):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # -------------------------------使用配置---------------------------------#
-        self.TABLE_LIST = self.__get_tables()['name'].to_list()  # 所有的表
-        self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的绰号列表
-        self.GZH_LIST = self.__get_gzhs()['biz'].to_list()  # 所有的公众号列表
-        self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))  # 映射绰号到公众号
-        self.SHAREINDEX_TABLES = ['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']  # 所有的股票指数
+        # self.TABLE_LIST = self.__get_tables()['name'].to_list()  # 所有的表
+        # self.NICKNAME_LIST = self.__get_gzhs()['nickname'].to_list()  # 所有的绰号列表
+        self.BIZ_LIST = self.get_biz_list()  # 所有的公众号列表
+        # self.MAP_NICK = dict(zip(self.NICKNAME_LIST, self.GZH_LIST))  # 映射绰号到公众号
+        # self.SHAREINDEX_TABLES = ['000001.SH', '399001.SZ', '000011.SH', '399300.SZ']  # 所有的股票指数
 
     def __get_gzhs(self) -> pd.DataFrame: return pd.read_sql("SELECT biz,nickname FROM gzhs", self.ENGINE)
 
     def __get_tables(self) -> pd.DataFrame: return pd.read_sql("select name from sqlite_master WHERE type ='table'",
                                                                self.ENGINE)
+
+    def get_biz_list(self) -> list:
+        return pd.read_sql('SELECT DISTINCT biz FROM NEW_WECHAT_DATA.articles ', self.ENGINE, columns=['biz'])['biz'].to_list()
 
     def get_index_members(self, ) -> list:
         return pd.read_sql("SELECT DISTINCT stockcode FROM ASHARE_MV ", self.ENGINE)['stockcode'].to_list()
@@ -66,8 +69,8 @@ class Base(DB):
                                                           self.ENGINE)
 
     def get_code_daily(self, code) -> pd.DataFrame: return pd.read_sql(
-        f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
-        self.ENGINE)
+            f"SELECT ts_code,trade_date,pct_chg,vol FROM '{code}' ",
+            self.ENGINE)
 
     def get_shibor(self) -> pd.DataFrame: return pd.read_sql('SELECT * FROM shibor', self.ENGINE)
 
@@ -98,5 +101,3 @@ class Base(DB):
         return pd.read_sql("SELECT trade_date,img_sent,text_sent FROM sent_index", self.ENGINE)
 
 
-if __name__ == '__main__':
-    DB(ENGINE_TYPE='MYSQL').init_database()
