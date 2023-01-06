@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="Ubuntu Notebook" uploadOnCheckin="bc77cff8-6477-4354-9467-15bf708c22cf" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="TensorFlow" uploadOnCheckin="bc77cff8-6477-4354-9467-15bf708c22cf" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false">
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="Ubuntu Notebook">
+      <paths name="Stata">
         <serverdata>
           <mappings>
             <mapping deploy="/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
@@ -12,6 +12,17 @@
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
             <excludedPath path="/Investor-Sentiment/DataSets" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="TensorFlow">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/Investor-Sentiment/DataSets" />
+            <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
           </excludedPaths>
         </serverdata>
       </paths>
