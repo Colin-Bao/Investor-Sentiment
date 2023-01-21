@@ -36,8 +36,10 @@ conda  install nodejs  -c conda-forge
 conda install -c conda-forge jupyterhub
 conda install -c conda-forge jupyterlab notebook
 conda  install  ipykernel ipython -c conda-forge
+
 #
 conda  install   ipykernel ipython -c conda-forge
+
 #安装太慢
 conda config --remove channels conda-forge
 conda config --add channels conda-forge

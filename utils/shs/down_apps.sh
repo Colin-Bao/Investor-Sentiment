@@ -15,7 +15,7 @@ cd /usr/local && mkdir stata17 && cd stata17
 /tmp/statafiles/install
 
 # 安装glibc libncurses5
-conda install -c rmg glibc
+#conda install -c rmg glibc
 apt install libncurses5
 
 # 激活并运行
