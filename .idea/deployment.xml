@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="Rapids" uploadOnCheckin="bc77cff8-6477-4354-9467-15bf708c22cf" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="Pytorch" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false">
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="Pytorch">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
       <paths name="Rapids">
         <serverdata>
           <mappings>
@@ -15,7 +25,6 @@
         </serverdata>
       </paths>
     </serverData>
-    <option name="myUploadOnCheckinName" value="Stata" />
     <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>
