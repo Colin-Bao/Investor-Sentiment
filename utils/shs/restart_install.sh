@@ -71,7 +71,14 @@ source /home/ubuntu/stable-diffusion-webui/venv/bin/activate #激活虚拟环境
 pip install ninja
 # Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types
 pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers
+
 # (this can take dozens of minutes)
+pip install triton==2.0.0.dev20221120
+export COMMANDLINE_ARGS="--listen --xformers --enable-insecure-extension-access"
+#eta (noise multiplier) for ancestral samplers=0.68
+#CLIP 2
+
+nohup bash /home/ubuntu/stable-diffusion-webui/webui.sh > /home/ubuntu/logs/sd-webui.log 2>&1 &
 
 # 安装Stata
 cd /tmp/ && mkdir statafiles && cd statafiles
