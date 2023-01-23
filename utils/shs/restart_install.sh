@@ -63,10 +63,10 @@ ln -s /data/DataSets  /home/ubuntu/notebooks/DataSets
 
 # 安装Stata
 
-#安装webui
+# 安装webui
 https://github.com/AUTOMATIC1111/stable-diffusion-webui
 apt install wget git python3 python3-venv
 bash <(wget -qO- https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui/master/webui.sh)
-
+ln -s /data/Model/Stable-diffusion  /home/ubuntu/stable-diffusion-webui/models/Stable-diffusion
 
 
