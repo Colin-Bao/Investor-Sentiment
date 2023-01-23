@@ -60,13 +60,22 @@ https://cloud.tencent.com/document/product/362/6734
 # 新建软连接
 ln -s /data/DataSets  /home/ubuntu/notebooks/DataSets
 
-
-# 安装Stata
-
 # 安装webui
 https://github.com/AUTOMATIC1111/stable-diffusion-webui
 apt install wget git python3 python3-venv
 bash <(wget -qO- https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui/master/webui.sh)
 ln -s /data/Model/Stable-diffusion  /home/ubuntu/stable-diffusion-webui/models/Stable-diffusion
 
+source /home/ubuntu/stable-diffusion-webui/venv/bin/activate #激活虚拟环境
+# (Optional) Makes the build much faster
+pip install ninja
+# Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types
+pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers
+# (this can take dozens of minutes)
+
+# 安装Stata
+cd /tmp/ && mkdir statafiles && cd statafiles
+tar -zxf /data/Downloads/Stata17Linux64.tar.gz
+cd /usr/local && sudo mkdir stata17 && cd stata17
+sudo /tmp/statafiles/install
 
