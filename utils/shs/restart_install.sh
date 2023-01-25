@@ -77,8 +77,13 @@ pip install triton==2.0.0.dev20221120
 export COMMANDLINE_ARGS="--listen --xformers --enable-insecure-extension-access"
 #eta (noise multiplier) for ancestral samplers=0.68
 #CLIP 2
-
+#统计访问情况
+iptraf-ng -i eth0 -L /home/ubuntu/logs/traffic_log -B
+less /var/log/traffic_log
+netstat -nat | grep -i "7860" |awk '{print $5}'|awk -F: '{print $1}'|sort|uniq -c|sort -nr|head -20
 nohup bash /home/ubuntu/stable-diffusion-webui/webui.sh > /home/ubuntu/logs/sd-webui.log 2>&1 &
+
+
 
 # 安装Stata
 cd /tmp/ && mkdir statafiles && cd statafiles
