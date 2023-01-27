@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/Investor-Sentiment.iml" filepath="$PROJECT_DIR$/.idea/Investor-Sentiment.iml" />
       <module fileurl="file://$USER_HOME$/Library/Mobile Documents/iCloud~md~obsidian/Documents/Investor-Sentiment-Text/.idea/Investor-Sentiment-Text.iml" filepath="$USER_HOME$/Library/Mobile Documents/iCloud~md~obsidian/Documents/Investor-Sentiment-Text/.idea/Investor-Sentiment-Text.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/investor_sentiment.iml" filepath="$PROJECT_DIR$/.idea/investor_sentiment.iml" />
     </modules>
   </component>
 </project>
