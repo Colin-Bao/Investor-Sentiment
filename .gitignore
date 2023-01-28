@@ -1,3 +1,4 @@
 /DataSets/
+/outputs/
 *.parquet
 *.csv
