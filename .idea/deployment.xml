@@ -18,6 +18,7 @@
         <serverdata>
           <mappings>
             <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/pycharm_projects/Investor-Sentiment-Text" local="$USER_HOME$/Library/Mobile Documents/iCloud~md~obsidian/Documents/Investor-Sentiment-Text" web="/" />
           </mappings>
           <excludedPaths>
             <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
