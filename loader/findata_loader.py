@@ -338,16 +338,13 @@ class Loader(TuShare):
                 [
                         # 情绪数据
                         cudf.from_pandas(
-                                pd.concat(
-                                        [pd.read_sql_table('IMG_SENT', self.ENGINE, 'SENT_DATA').astype(dtype={'trade_date': 'uint32'})
-                                         .set_index('trade_date').rename(columns={'neg_index': 'img_neg'}),
+                                pd.read_parquet('/home/ubuntu/notebooks/DataSets/WC_SENT/WC_SENT_2014_2021.parquet')
+                                .astype(dtype={'trade_date': 'uint32'}).set_index('trade_date'),
 
-                                         pd.read_sql_table('TEX_SENT', self.ENGINE, 'SENT_DATA').astype(dtype={'trade_date': 'uint32'})
-                                         .set_index('trade_date').rename(columns={'neg_index': 'tex_neg'})
-                                         ], axis=1
-                                )),
+                        ),
                         # SHIBOR数据
-                        cudf.from_pandas((pd.read_sql_table('SHIBOR', self.ENGINE, 'FIN_DAILY_MACRO', columns=['trade_date', '3m'])
+                        cudf.from_pandas((pd.read_parquet('/home/ubuntu/notebooks/DataSets/MACRO_DATA/SHIBOR_TS_2014_2022.parquet',
+                                                          columns=['trade_date', '3m'])
                                           .astype(dtype={'trade_date': 'uint32'}).set_index('trade_date')
                                           .rename(columns={'3m': 'riskfree_return'}) / 360))
                 ],
