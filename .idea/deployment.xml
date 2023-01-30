@@ -1,20 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="Rapids" uploadOnCheckin="1d6b5a7f-a601-4ea7-a6da-112f6676c95d" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false" showAutoUploadSettingsWarning="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="notebooks" uploadOnCheckin="1d6b5a7f-a601-4ea7-a6da-112f6676c95d" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false" showAutoUploadSettingsWarning="false">
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="Pytorch">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
-          </excludedPaths>
-        </serverdata>
-      </paths>
-      <paths name="Rapids">
+      <paths name="notebooks">
         <serverdata>
           <mappings>
             <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
