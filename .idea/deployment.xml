@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="notebooks" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false" showAutoUploadSettingsWarning="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="notebooks" uploadOnCheckin="442a49aa-88e5-4a2d-adb4-295cae54de4b" filePermissions="511" folderPermissions="511" confirmBeforeUploading="false" confirmBeforeDeletion="false" showAutoUploadSettingsWarning="false">
     <option name="confirmBeforeDeletion" value="false" />
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
@@ -16,6 +16,7 @@
         </serverdata>
       </paths>
     </serverData>
+    <option name="myUploadOnCheckinName" value="notebooks" />
     <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>
