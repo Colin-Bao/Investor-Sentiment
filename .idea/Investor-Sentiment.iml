@@ -6,6 +6,5 @@
     </content>
     <orderEntry type="jdk" jdkName="Rapids" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="Investor-Sentiment-Text" />
   </component>
 </module>
