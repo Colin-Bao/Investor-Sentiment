@@ -76,13 +76,6 @@ pip install -v -U git+https://github.com/facebookresearch/xformers.git@main#egg=
 pip install triton==2.0.0.dev20221120
 export COMMANDLINE_ARGS="--listen --xformers --enable-insecure-extension-access"
 #eta (noise multiplier) for ancestral samplers=0.68
-#CLIP 2
-#统计访问情况
-iptraf-ng -i eth0 -L /home/ubuntu/logs/traffic_log -B
-less /var/log/traffic_log
-netstat -nat | grep -i "7860" |awk '{print $5}'|awk -F: '{print $1}'|sort|uniq -c|sort -nr|head -20
-nohup bash /home/ubuntu/stable-diffusion-webui/webui.sh > /home/ubuntu/logs/sd-webui.log 2>&1 &
-
 
 
 # 安装Stata
@@ -91,3 +84,13 @@ tar -zxf /data/Downloads/Stata17Linux64.tar.gz
 cd /usr/local && sudo mkdir stata17 && cd stata17
 sudo /tmp/statafiles/install
 
+# 安装label
+conda create --name Label-Studio python=3.9
+conda activate Label-Studio
+pip install label-studio
+
+export LOCAL_FILES_SERVING_ENABLED=true
+export LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+export LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data/DataSets/Label_Studio_DS
+nohup label-studio start -p 9000 > /home/ubuntu/logs/label_studio.log 2>&1 &
+ps -aux | grep label-studio
