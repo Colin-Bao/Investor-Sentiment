@@ -79,9 +79,11 @@ export COMMANDLINE_ARGS="--listen --xformers --enable-insecure-extension-access"
 
 
 # 安装Stata
-cd /tmp/ && mkdir statafiles && cd statafiles
+cd /tmp/ && mkdir statafiles
+cd statafiles || exit
 tar -zxf /data/Downloads/Stata17Linux64.tar.gz
-cd /usr/local && sudo mkdir stata17 && cd stata17
+cd /usr/local && sudo mkdir stata17
+cd stata17 || exit
 sudo /tmp/statafiles/install
 
 # 安装label
