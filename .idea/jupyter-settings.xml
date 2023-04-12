@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JupyterPersistentConnectionParameters">
+    <option name="knownRemoteServers">
+      <list>
+        <JupyterConnectionParameters>
+          <option name="authType" value="jupyterhub" />
+          <option name="urlString" value="http://1.116.108.184:8000" />
+          <authParams2>
+            <map>
+              <entry key="username" value="ubuntu" />
+            </map>
+          </authParams2>
+        </JupyterConnectionParameters>
+      </list>
+    </option>
+    <option name="moduleParameters">
+      <map>
+        <entry key="$PROJECT_DIR$/.idea/Investor-Sentiment.iml">
+          <value>
+            <JupyterConnectionParameters>
+              <option name="authType" value="jupyterhub" />
+              <option name="urlString" value="http://1.116.108.184:8000" />
+              <authParams2>
+                <map>
+                  <entry key="username" value="ubuntu" />
+                </map>
+              </authParams2>
+            </JupyterConnectionParameters>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/../../../iCloud~md~obsidian/Documents/Investor-Sentiment-Text/.idea/Investor-Sentiment-Text.iml">
+          <value>
+            <JupyterConnectionParameters>
+              <option name="authType" value="jupyterhub" />
+              <option name="urlString" value="http://1.116.108.184:8000" />
+              <authParams2>
+                <map>
+                  <entry key="username" value="ubuntu" />
+                </map>
+              </authParams2>
+            </JupyterConnectionParameters>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
