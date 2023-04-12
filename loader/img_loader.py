@@ -2,7 +2,6 @@ import pandas as pd
 from utils.sql import Base
 
 
-
 class DownLoader(Base):
     """
     下载器,下载图片到本地
@@ -46,7 +45,6 @@ class DownLoader(Base):
             # 多线程下载器
             # 开始任务
             MultiExecutor().start_multi_task(down_task, list(zip(chunk['cover'].to_list(), chunk['biz'].to_list(), chunk['id'].to_list())))
-
 
 
 class ImgGenerator(Base):

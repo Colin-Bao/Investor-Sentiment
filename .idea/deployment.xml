@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="notebooks" uploadOnCheckin="442a49aa-88e5-4a2d-adb4-295cae54de4b">
+  <component name="PublishConfigData" autoUpload="Always" serverName="1.116.108.184" uploadOnCheckin="442a49aa-88e5-4a2d-adb4-295cae54de4b">
     <serverData>
+      <paths name="1.116.108.184">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/pycharm_projects/Investor-Sentiment-Text" local="$PROJECT_DIR$/../../../iCloud~md~obsidian/Documents/Investor-Sentiment-Text" web="/" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/DataSets" />
+            <excludedPath path="/home/ubuntu/notebooks/DataSets" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
       <paths name="notebooks">
         <serverdata>
           <mappings>
