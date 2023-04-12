@@ -14,14 +14,6 @@
           </excludedPaths>
         </serverdata>
       </paths>
-      <paths name="notebooks">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/pycharm_projects/Investor-Sentiment-Text" local="$PROJECT_DIR$/../../../iCloud~md~obsidian/Documents/Investor-Sentiment-Text" web="/" />
-            <mapping deploy="/pycharm_projects/Investor-Sentiment" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
     </serverData>
     <option name="myUploadOnCheckinName" value="notebooks" />
     <option name="myAutoUpload" value="ALWAYS" />
